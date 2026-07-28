@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Server",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build solution",
+      "program": "${workspaceFolder}\\RemoteMonitor.Server\\bin\\Debug\\net8.0-windows\\RemoteMonitor.Server.dll",
+      "cwd": "${workspaceFolder}\\RemoteMonitor.Server",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Debug Client",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build solution",
+      "program": "${workspaceFolder}\\RemoteMonitor.Client\\bin\\Debug\\net8.0-windows\\RemoteMonitor.Client.dll",
+      "cwd": "${workspaceFolder}\\RemoteMonitor.Client",
+      "stopAtEntry": false
+    }
+  ]
+}

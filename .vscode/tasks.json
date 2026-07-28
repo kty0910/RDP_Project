@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build solution",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}\\RemoteSessionMonitor.sln"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "run server",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}\\RemoteMonitor.Server\\RemoteMonitor.Server.csproj"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "run client",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}\\RemoteMonitor.Client\\RemoteMonitor.Client.csproj"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

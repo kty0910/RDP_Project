@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <ApplicationIcon>..\Assets\server-r.ico</ApplicationIcon>
+    <EnableBridgeToken Condition="'$(EnableBridgeToken)' == ''">true</EnableBridgeToken>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(EnableBridgeToken)' == 'true'">
+    <DefineConstants>$(DefineConstants);BRIDGE_TOKEN_REQUIRED</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Assets\server-r.ico" LogicalName="RemoteMonitor.Server.AppIconR" />
+  </ItemGroup>
+
+</Project>
