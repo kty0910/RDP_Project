@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using RemoteMonitor.Client.Models;
@@ -11,6 +12,15 @@ public sealed class RemoteMonitorApiClient
     {
         Timeout = TimeSpan.FromSeconds(3)
     };
+
+#if STATUS_PUSH_PROTOTYPE
+    private static readonly JsonSerializerOptions StatusStreamJsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly HttpClient statusStreamHttpClient = new()
+    {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
+    private readonly string clientInstanceId = Guid.NewGuid().ToString("N");
+#endif
 
     public async Task<HealthResponse> GetHealthAsync(RemotePcInfo remotePc, CancellationToken cancellationToken = default)
     {
@@ -55,6 +65,77 @@ public sealed class RemoteMonitorApiClient
 
         return status ?? new RemoteStatusResponse { CheckedAt = DateTime.Now };
     }
+
+#if STATUS_PUSH_PROTOTYPE
+    public async IAsyncEnumerable<RemoteStatusResponse> StreamStatusAsync(
+        RemotePcInfo remotePc,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (remotePc.UseBridge)
+        {
+            throw new NotSupportedException("Status push prototype supports direct connections only.");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{remotePc.ApiBaseUrl}/status/stream");
+        request.Headers.Add("X-Client-Id", clientInstanceId);
+
+        using var response = await statusStreamHttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var eventName = string.Empty;
+        var data = new StringBuilder();
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                yield break;
+            }
+
+            if (line.Length == 0)
+            {
+                if (data.Length > 0
+                    && (eventName.Equals("snapshot", StringComparison.OrdinalIgnoreCase)
+                        || eventName.Equals("statusChanged", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var status = JsonSerializer.Deserialize<RemoteStatusResponse>(
+                        data.ToString(),
+                        StatusStreamJsonOptions);
+                    if (status is not null)
+                    {
+                        yield return status;
+                    }
+                }
+
+                eventName = string.Empty;
+                data.Clear();
+                continue;
+            }
+
+            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase))
+            {
+                eventName = line["event:".Length..].Trim();
+                continue;
+            }
+
+            if (line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (data.Length > 0)
+                {
+                    data.AppendLine();
+                }
+
+                data.Append(line["data:".Length..].TrimStart());
+            }
+        }
+    }
+#endif
 
     public async Task<BridgeRdpStartResponse> StartBridgeRdpAsync(
         RemotePcInfo remotePc,

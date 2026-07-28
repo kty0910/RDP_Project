@@ -11,10 +11,15 @@
     <FileVersion>1.0.0.0</FileVersion>
     <ApplicationIcon>..\Assets\client-r.ico</ApplicationIcon>
     <EnableBridgeToken Condition="'$(EnableBridgeToken)' == ''">true</EnableBridgeToken>
+    <EnableStatusPushPrototype Condition="'$(EnableStatusPushPrototype)' == ''">false</EnableStatusPushPrototype>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(EnableBridgeToken)' == 'true'">
     <DefineConstants>$(DefineConstants);BRIDGE_TOKEN_REQUIRED</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(EnableStatusPushPrototype)' == 'true'">
+    <DefineConstants>$(DefineConstants);STATUS_PUSH_PROTOTYPE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

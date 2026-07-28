@@ -3596,6 +3596,13 @@ private bool isTrayStatusChecking;
 
 
 
+#if STATUS_PUSH_PROTOTYPE
+                    if (!row.RemotePc.UseBridge)
+                    {
+                        continue;
+                    }
+#endif
+
                     var token = GetMonitoringToken(key);
 
 
@@ -3776,6 +3783,10 @@ private bool isTrayStatusChecking;
 
                 rowStates[key] = RemotePcRow.Pending(remotePc, isMonitoring: true);
 
+#if STATUS_PUSH_PROTOTYPE
+                StartStatusSubscription(remotePc, key);
+#endif
+
 
 
             }
@@ -3811,6 +3822,13 @@ private bool isTrayStatusChecking;
 
 
                 var token = GetMonitoringToken(key);
+
+#if STATUS_PUSH_PROTOTYPE
+                if (!remotePc.UseBridge)
+                {
+                    continue;
+                }
+#endif
 
 
 
@@ -4212,6 +4230,139 @@ private bool isTrayStatusChecking;
 
 
 
+
+#if STATUS_PUSH_PROTOTYPE
+    private void StartStatusSubscription(RemotePcInfo remotePc, string key)
+    {
+        if (remotePc.UseBridge)
+        {
+            return;
+        }
+
+        var cancellationToken = GetMonitoringToken(key);
+        _ = Task.Run(
+            () => ObserveStatusStreamAsync(remotePc, key, cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task ObserveStatusStreamAsync(
+        RemotePcInfo remotePc,
+        string key,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await foreach (var status in apiClient.StreamStatusAsync(remotePc, cancellationToken))
+                {
+                    var canConnect = await availabilityService.CanConnectAsync(remotePc, cancellationToken);
+                    QueueStatusStreamUpdate(remotePc, key, status, canConnect);
+                }
+
+                QueueStatusStreamFailure(remotePc, key);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch
+            {
+                QueueStatusStreamFailure(remotePc, key);
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
+    private void QueueStatusStreamUpdate(
+        RemotePcInfo remotePc,
+        string key,
+        RemoteStatusResponse status,
+        bool canConnect)
+    {
+        QueueStatusStreamUiAction(() =>
+        {
+            if (!monitoringKeys.Contains(key)
+                || !rowStates.TryGetValue(key, out var currentRow)
+                || !IsSameRemotePc(currentRow.RemotePc, remotePc))
+            {
+                return;
+            }
+
+            ResetStatusRequestFailureCount(remotePc);
+            rowStates[key] = canConnect
+                ? CreateAvailableRow(remotePc, status, isMonitoring: true)
+                : RemotePcRow.Unavailable(remotePc, isMonitoring: true);
+            BindGrid();
+        });
+    }
+
+    private void QueueStatusStreamFailure(RemotePcInfo remotePc, string key)
+    {
+        QueueStatusStreamUiAction(() =>
+        {
+            if (!monitoringKeys.Contains(key)
+                || !rowStates.TryGetValue(key, out var currentRow)
+                || !IsSameRemotePc(currentRow.RemotePc, remotePc))
+            {
+                return;
+            }
+
+            rowStates[key] = BuildStatusRequestFailedRow(remotePc, isMonitoring: true);
+            BindGrid();
+        });
+    }
+
+    private void QueueStatusStreamUiAction(Action action)
+    {
+        if (IsDisposed || Disposing || !IsHandleCreated)
+        {
+            return;
+        }
+
+        try
+        {
+            BeginInvoke(action);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static RemotePcRow CreateAvailableRow(
+        RemotePcInfo remotePc,
+        RemoteStatusResponse status,
+        bool isMonitoring)
+    {
+        var users = status.Sessions
+            .Where(session => session.IsActive)
+            .Select(session => session.ClientName)
+            .Where(clientName => !string.IsNullOrWhiteSpace(clientName))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var clientIps = status.Sessions
+            .Where(session => session.IsActive)
+            .Select(session => session.ClientAddress)
+            .Where(clientAddress => !string.IsNullOrWhiteSpace(clientAddress))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return RemotePcRow.Available(
+            remotePc,
+            status.HasActiveRdpSession,
+            users,
+            clientIps,
+            isMonitoring);
+    }
+#endif
 
     private RemotePcRow BuildStatusRequestFailedRow(RemotePcInfo remotePc, bool isMonitoring)
     {
@@ -4906,6 +5057,10 @@ private bool isTrayStatusChecking;
 
 
             StartMonitoringCancellationSource(newKey);
+
+#if STATUS_PUSH_PROTOTYPE
+            StartStatusSubscription(dialog.RemotePc, newKey);
+#endif
 
 
 
@@ -5611,6 +5766,10 @@ private bool isTrayStatusChecking;
 
         rowStates[key] = RemotePcRow.Pending(row.RemotePc, isMonitoring: true);
 
+#if STATUS_PUSH_PROTOTYPE
+        StartStatusSubscription(row.RemotePc, key);
+#endif
+
 
 
         BindGrid();
@@ -5620,6 +5779,13 @@ private bool isTrayStatusChecking;
 
 
 
+
+#if STATUS_PUSH_PROTOTYPE
+        if (!row.RemotePc.UseBridge)
+        {
+            return;
+        }
+#endif
 
         var token = GetMonitoringToken(key);
 

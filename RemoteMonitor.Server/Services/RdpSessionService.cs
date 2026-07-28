@@ -10,6 +10,8 @@ public sealed class RdpSessionService
     private readonly object statusLock = new();
     private ServerStatusResponse latestStatus = new() { CheckedAt = DateTime.MinValue };
 
+    public event Action<ServerStatusResponse>? StatusChanged;
+
     public RdpSessionService(FileLogger logger)
     {
         this.logger = logger;
@@ -40,9 +42,16 @@ public sealed class RdpSessionService
                 Sessions = wtsSessions
             };
 
+            bool changed;
             lock (statusLock)
             {
+                changed = !HasSameObservableStatus(latestStatus, refreshedStatus);
                 latestStatus = refreshedStatus;
+            }
+
+            if (changed)
+            {
+                StatusChanged?.Invoke(refreshedStatus);
             }
 
             return Task.FromResult(refreshedStatus);
@@ -64,5 +73,36 @@ public sealed class RdpSessionService
 
             return Task.FromResult(emptyStatus);
         }
+    }
+
+    private static bool HasSameObservableStatus(ServerStatusResponse left, ServerStatusResponse right)
+    {
+        if (left.CheckedAt == DateTime.MinValue
+            || left.HasActiveRdpSession != right.HasActiveRdpSession
+            || left.ActiveRdpSessionCount != right.ActiveRdpSessionCount)
+        {
+            return false;
+        }
+
+        var leftSessions = GetObservableSessions(left);
+        var rightSessions = GetObservableSessions(right);
+
+        return leftSessions.SequenceEqual(rightSessions, StringComparer.Ordinal);
+    }
+
+    private static string[] GetObservableSessions(ServerStatusResponse status)
+    {
+        return status.Sessions
+            .Where(session => session.IsActive && session.IsRemoteDesktop)
+            .OrderBy(session => session.SessionId)
+            .Select(session => string.Join(
+                "\u001f",
+                session.SessionId,
+                session.State,
+                session.UserName,
+                session.ClientName,
+                session.ClientAddress,
+                session.ClientProtocolType))
+            .ToArray();
     }
 }

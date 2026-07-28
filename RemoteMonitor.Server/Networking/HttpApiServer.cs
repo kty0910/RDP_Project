@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading.Channels;
 using RemoteMonitor.Server.Bridge;
 using RemoteMonitor.Server.Config;
 using RemoteMonitor.Server.Logging;
@@ -15,6 +16,10 @@ public sealed class HttpApiServer : IDisposable
     {
         WriteIndented = true
     };
+
+#if STATUS_PUSH_PROTOTYPE
+    private static readonly JsonSerializerOptions SseJsonOptions = new(JsonSerializerDefaults.Web);
+#endif
 
     private readonly TcpListener listener;
     private readonly RdpSessionService sessionService;
@@ -147,6 +152,14 @@ public sealed class HttpApiServer : IDisposable
             return;
         }
 
+#if STATUS_PUSH_PROTOTYPE
+        if (request.Path.Equals("/status/stream", StringComparison.OrdinalIgnoreCase))
+        {
+            await StreamStatusAsync(writer, headers, cancellationToken);
+            return;
+        }
+#endif
+
         if (request.Path.Equals("/status", StringComparison.OrdinalIgnoreCase))
         {
             if (request.Query.ContainsKey("host"))
@@ -188,6 +201,99 @@ public sealed class HttpApiServer : IDisposable
 
         await WriteJsonAsync(writer, HttpStatusCode.NotFound, new { error = "Not found" });
     }
+
+#if STATUS_PUSH_PROTOTYPE
+    private async Task StreamStatusAsync(
+        StreamWriter writer,
+        IReadOnlyDictionary<string, string> headers,
+        CancellationToken cancellationToken)
+    {
+        var clientId = headers.TryGetValue("X-Client-Id", out var value) && !string.IsNullOrWhiteSpace(value)
+            ? new string(value.Trim().Take(64).ToArray())
+            : "anonymous";
+        var updates = Channel.CreateBounded<ServerStatusResponse>(new BoundedChannelOptions(1)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = false
+        });
+
+        void OnStatusChanged(ServerStatusResponse status) => updates.Writer.TryWrite(status);
+
+        sessionService.StatusChanged += OnStatusChanged;
+
+        try
+        {
+            await writer.WriteLineAsync("HTTP/1.1 200 OK");
+            await writer.WriteLineAsync("Content-Type: text/event-stream; charset=utf-8");
+            await writer.WriteLineAsync("Cache-Control: no-cache");
+            await writer.WriteLineAsync("Connection: close");
+            await writer.WriteLineAsync("X-Accel-Buffering: no");
+            await writer.WriteLineAsync();
+
+            await WriteSseEventAsync(writer, "snapshot", await sessionService.GetStatusAsync(cancellationToken));
+            logger.Info($"Status stream subscribed: clientId={clientId}.");
+
+            var updateAvailable = updates.Reader.WaitToReadAsync(cancellationToken).AsTask();
+            var heartbeatDue = Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var completed = await Task.WhenAny(updateAvailable, heartbeatDue);
+
+                if (completed == updateAvailable && await updateAvailable)
+                {
+                    ServerStatusResponse? latest = null;
+                    while (updates.Reader.TryRead(out var status))
+                    {
+                        latest = status;
+                    }
+
+                    if (latest is not null)
+                    {
+                        await WriteSseEventAsync(writer, "statusChanged", latest);
+                    }
+
+                    updateAvailable = updates.Reader.WaitToReadAsync(cancellationToken).AsTask();
+                }
+                else
+                {
+                    await writer.WriteLineAsync($": heartbeat {DateTimeOffset.UtcNow:O}");
+                    await writer.WriteLineAsync();
+                    await writer.FlushAsync(cancellationToken);
+                    heartbeatDue = Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (IOException)
+        {
+        }
+        catch (SocketException)
+        {
+        }
+        finally
+        {
+            sessionService.StatusChanged -= OnStatusChanged;
+            updates.Writer.TryComplete();
+            logger.Info($"Status stream unsubscribed: clientId={clientId}.");
+        }
+    }
+
+    private static async Task WriteSseEventAsync(
+        StreamWriter writer,
+        string eventName,
+        ServerStatusResponse status)
+    {
+        var json = JsonSerializer.Serialize(status, SseJsonOptions);
+        await writer.WriteLineAsync($"event: {eventName}");
+        await writer.WriteLineAsync($"data: {json}");
+        await writer.WriteLineAsync();
+        await writer.FlushAsync();
+    }
+#endif
 
     private static bool TryGetBridgeEndpoint(
         IReadOnlyDictionary<string, string> query,
