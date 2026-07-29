@@ -50,6 +50,10 @@ public sealed class MainForm : Form
 
     private const int DefaultRdpPort = 3389;
 
+    private static readonly Color ErrorRowBackColor = Color.FromArgb(255, 235, 235);
+
+    private static readonly Color WarningRowBackColor = Color.FromArgb(255, 249, 219);
+
 
 
 
@@ -2790,6 +2794,8 @@ private bool isTrayStatusChecking;
 
         pcGrid.DataSource = orderedRows;
 
+        ApplyRowStatusStyles();
+
 
 
 
@@ -2839,6 +2845,31 @@ private bool isTrayStatusChecking;
 
 
 
+
+    private void ApplyRowStatusStyles()
+    {
+        foreach (DataGridViewRow gridRow in pcGrid.Rows)
+        {
+            if (gridRow.DataBoundItem is not RemotePcRow row)
+            {
+                continue;
+            }
+
+            var backColor = GetRowBackColor(row);
+            gridRow.DefaultCellStyle.BackColor = backColor;
+            gridRow.DefaultCellStyle.SelectionBackColor = backColor;
+        }
+    }
+
+    private static Color GetRowBackColor(RemotePcRow row)
+    {
+        return row.Highlight switch
+        {
+            RowHighlight.Warning => WarningRowBackColor,
+            RowHighlight.Error => ErrorRowBackColor,
+            _ => Color.White
+        };
+    }
 
     private void RestoreGridPosition(string? selectedKey, string? selectedColumnName, int firstDisplayedRowIndex)
 
@@ -3206,7 +3237,7 @@ private bool isTrayStatusChecking;
 
 
 
-            && pcGrid.Rows[e.RowIndex].DataBoundItem is RemotePcRow { IsMonitoring: false }
+            && pcGrid.Rows[e.RowIndex].DataBoundItem is RemotePcRow { IsMonitoring: false } row
 
 
 
@@ -3222,7 +3253,7 @@ private bool isTrayStatusChecking;
 
 
 
-            e.CellStyle.BackColor = Color.White;
+            e.CellStyle.BackColor = GetRowBackColor(row);
 
 
 
@@ -3230,7 +3261,7 @@ private bool isTrayStatusChecking;
 
 
 
-            e.CellStyle.SelectionBackColor = Color.White;
+            e.CellStyle.SelectionBackColor = GetRowBackColor(row);
 
 
 
@@ -6026,6 +6057,13 @@ private bool isTrayStatusChecking;
 
 
 
+    private enum RowHighlight
+    {
+        None,
+        Warning,
+        Error
+    }
+
     private sealed class RemotePcRow
     {
         private RemotePcRow(RemotePcInfo remotePc)
@@ -6057,6 +6095,8 @@ private bool isTrayStatusChecking;
 
         public bool IsMonitoring { get; private init; }
 
+        public RowHighlight Highlight { get; private init; }
+
         public string StatusButtonText => IsMonitoring ? "종료" : "시작";
 
         public string ConnectButtonText => "접속";
@@ -6077,7 +6117,8 @@ private bool isTrayStatusChecking;
                 ClientIpText = "-",
                 IsReachable = false,
                 CanConfirmOccupancy = false,
-                IsMonitoring = isMonitoring
+                IsMonitoring = isMonitoring,
+                Highlight = RowHighlight.None
             };
         }
 
@@ -6098,7 +6139,8 @@ private bool isTrayStatusChecking;
                 IsReachable = true,
                 HasActiveSession = hasActiveSession,
                 CanConfirmOccupancy = true,
-                IsMonitoring = isMonitoring
+                IsMonitoring = isMonitoring,
+                Highlight = hasActiveSession ? RowHighlight.Warning : RowHighlight.None
             };
         }
 
@@ -6114,7 +6156,8 @@ private bool isTrayStatusChecking;
                 IsReachable = true,
                 HasActiveSession = false,
                 CanConfirmOccupancy = false,
-                IsMonitoring = isMonitoring
+                IsMonitoring = isMonitoring,
+                Highlight = RowHighlight.Error
             };
         }
 
@@ -6129,7 +6172,8 @@ private bool isTrayStatusChecking;
                 ClientIpText = "-",
                 IsReachable = false,
                 CanConfirmOccupancy = false,
-                IsMonitoring = isMonitoring
+                IsMonitoring = isMonitoring,
+                Highlight = RowHighlight.Error
             };
         }
     }
