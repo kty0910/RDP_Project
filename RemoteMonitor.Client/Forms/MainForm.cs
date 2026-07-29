@@ -2778,7 +2778,17 @@ private bool isTrayStatusChecking;
 
 
 
-        pcGrid.DataSource = rowStates.Values.ToList();
+        var orderedRows = new List<RemotePcRow>(remotePcs.Count);
+
+        foreach (var remotePc in remotePcs)
+        {
+            if (rowStates.TryGetValue(GetRemotePcKey(remotePc), out var row))
+            {
+                orderedRows.Add(row);
+            }
+        }
+
+        pcGrid.DataSource = orderedRows;
 
 
 
