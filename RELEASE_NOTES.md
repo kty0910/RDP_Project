@@ -2,7 +2,7 @@
 
 프로그램 변경 이력을 날짜별로 기록한다.
 
-- 현재 버전: `v1.1.2`
+- 현재 버전: `v1.1.1`
 - 최신 변경일: `2026-07-29`
 - 날짜가 명확하지 않은 연속 작업은 기간으로 묶어 기록한다.
 - 비밀번호, 계정, Token 등 민감정보는 기록하지 않는다.
@@ -11,17 +11,13 @@
 
 ## 2026-07-29
 
-### v1.1.2 패치
-
-- 내부망에서 주로 사용하는 무토큰 구성을 기본판으로 변경
-- 기본판은 `EnableBridgeToken=false`, `publish`, `installer-output`, `RemoteMonitor_Setup_v1.1.2.exe` 명칭 사용
-- 토큰판은 `EnableBridgeToken=true`, `publish-token`, `installer-output-token`, `RemoteMonitor_Setup_v1.1.2_Token.exe` 명칭 사용
-- 설치 빌드 스크립트에 `-Token` 선택 항목을 추가하고 README의 빌드·배포 명칭을 새 기준으로 정리
-
 ### v1.1.1 패치
 
 - Client와 Server 버전을 `1.1.1`로 갱신
-- 일반판과 무토큰판 설치 파일을 `RemoteMonitor_Setup_v1.1.1.exe`로 갱신
+- 내부망에서 주로 사용하는 무토큰 구성을 기본판으로 변경
+- 기본판은 `EnableBridgeToken=false`, `publish`, `installer-output`, `RemoteMonitor_Setup_v1.1.1.exe` 명칭 사용
+- 토큰판은 `EnableBridgeToken=true`, `publish-token`, `installer-output-token`, `RemoteMonitor_Setup_v1.1.1_Token.exe` 명칭 사용
+- 설치 빌드 스크립트에 `-Token` 선택 항목을 추가하고 README의 빌드·배포 명칭을 새 기준으로 정리
 - Client 원격 PC 목록에서 `연결 불가`, `확인 불가` 상태를 옅은 빨간색 행으로 표시
 - 접속자가 있는 원격 PC를 옅은 노란색 행으로 표시하여 경고 상태를 쉽게 구분하도록 개선
 - 상태 체크 대기·확인 중과 정상 상태는 기존 흰색 행을 유지하고, 선택된 행과 버튼 영역에도 상태 색상을 일관되게 적용
