@@ -10,6 +10,10 @@ public sealed class RemotePcInfo
 
     public string Password { get; init; } = string.Empty;
 
+    public string DescriptionSummary { get; init; } = string.Empty;
+
+    public string DescriptionDetails { get; init; } = string.Empty;
+
     public int Port { get; init; } = 5000;
 
     public int RdpPort { get; init; } = 3389;

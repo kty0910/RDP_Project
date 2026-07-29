@@ -1497,15 +1497,19 @@ private bool isTrayStatusChecking;
 
 
 
-        pcGrid.Columns.Add(CreateTextColumn("Name", "원격 PC 이름", 30));
+        pcGrid.Columns.Add(CreateTextColumn("Name", "원격 PC 이름", 24));
 
 
 
-        pcGrid.Columns.Add(CreateTextColumn("ConnectionText", "연결 상태", 20));
+        pcGrid.Columns.Add(CreateTextColumn("DescriptionSummary", "부가 설명", 28));
 
 
 
-        pcGrid.Columns.Add(CreateTextColumn("OccupancyText", "접속 인원", 24));
+        pcGrid.Columns.Add(CreateTextColumn("ConnectionText", "연결 상태", 18));
+
+
+
+        pcGrid.Columns.Add(CreateTextColumn("OccupancyText", "접속 인원", 20));
 
 
 
@@ -5425,7 +5429,9 @@ private bool isTrayStatusChecking;
 
 
 
-        if (rowStates.TryGetValue(openDetailKey, out var row))
+        var detailKey = openDetailKey;
+
+        if (rowStates.TryGetValue(detailKey, out var row))
 
 
 
@@ -5445,11 +5451,27 @@ private bool isTrayStatusChecking;
 
 
 
+        var expandColumnIndex = pcGrid.Columns["ExpandToggle"].Index;
+
+        foreach (DataGridViewRow gridRow in pcGrid.Rows)
+        {
+            if (gridRow.DataBoundItem is not RemotePcRow displayedRow
+                || !GetRemotePcKey(displayedRow.RemotePc).Equals(detailKey, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            displayedRow.SetDetailOpen(false);
+            pcGrid.UpdateCellValue(expandColumnIndex, gridRow.Index);
+            pcGrid.InvalidateCell(expandColumnIndex, gridRow.Index);
+            break;
+        }
+
         openDetailKey = null;
 
 
 
-        pcGrid.InvalidateColumn(pcGrid.Columns["ExpandToggle"].Index);
+        pcGrid.Refresh();
 
 
 
@@ -6004,6 +6026,8 @@ private bool isTrayStatusChecking;
         public RemotePcInfo RemotePc { get; }
 
         public string Name { get; private init; } = string.Empty;
+
+        public string DescriptionSummary => RemotePc.DescriptionSummary;
 
         public string ExpandButtonText { get; private set; } = "+";
 
