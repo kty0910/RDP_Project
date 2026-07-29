@@ -235,6 +235,10 @@ Filename: "{sys}\cmd.exe"; Parameters: "/C reg delete HKLM\Software\Microsoft\Wi
 
 
 
+Filename: "{sys}\cmd.exe"; Parameters: "/C reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v RemoteMonitorClient /f >NUL 2>&1 & exit /B 0"; Flags: runhidden waituntilterminated; Components: client
+
+
+
 Filename: "{sys}\cmd.exe"; Parameters: "/C sc stop RemoteMonitor.Server.Service >NUL 2>&1 & exit /B 0"; Flags: runhidden waituntilterminated; Components: server; Tasks: serverstartup
 
 
@@ -278,6 +282,10 @@ Filename: "{code:GetServerDir}\RemoteMonitor.Server.exe"; Description: "Server U
 
 
 Filename: "{sys}\cmd.exe"; Parameters: "/C reg delete HKLM\Software\Microsoft\Windows\CurrentVersion\Run /v RemoteMonitorClient /f >NUL 2>&1 & exit /B 0"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteClientRun"
+
+
+
+Filename: "{sys}\cmd.exe"; Parameters: "/C reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v RemoteMonitorClient /f >NUL 2>&1 & exit /B 0"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteCurrentUserClientRun"
 
 
 
