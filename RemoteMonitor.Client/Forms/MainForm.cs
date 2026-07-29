@@ -193,11 +193,11 @@ private bool isTrayStatusChecking;
 
 
 
-        ClientSize = new Size(800, 620);
+        ClientSize = new Size(1040, 620);
 
 
 
-        MinimumSize = new Size(760, 560);
+        MinimumSize = new Size(900, 560);
 
 
 
@@ -1501,7 +1501,7 @@ private bool isTrayStatusChecking;
 
 
 
-        pcGrid.Columns.Add(CreateTextColumn("DescriptionSummary", "부가 설명", 28));
+        pcGrid.Columns.Add(CreateTextColumn("DescriptionSummary", "부가 설명", 30));
 
 
 

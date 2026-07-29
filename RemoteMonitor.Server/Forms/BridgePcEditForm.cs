@@ -9,7 +9,9 @@ public sealed class BridgePcEditForm : Form
     private readonly TextBox hostTextBox = new();
     private readonly NumericUpDown statusPortInput = new();
     private readonly NumericUpDown rdpPortInput = new();
+    private readonly TextBox descriptionSummaryTextBox = new();
     private bool deleteRequested;
+    private string descriptionDetails = string.Empty;
 
     public BridgePcEditForm(BridgeTarget target, bool allowDelete)
     {
@@ -21,7 +23,7 @@ public sealed class BridgePcEditForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(430, 270);
+        ClientSize = new Size(520, 310);
 
         nameTextBox.Text = target.Name;
         nameTextBox.PlaceholderText = "ex. V5";
@@ -33,6 +35,12 @@ public sealed class BridgePcEditForm : Form
 
         ConfigurePortInput(statusPortInput, target.ApiPort <= 0 ? 5000 : target.ApiPort);
         ConfigurePortInput(rdpPortInput, target.RdpPort <= 0 ? 3389 : target.RdpPort);
+
+        descriptionSummaryTextBox.Text = target.DescriptionSummary;
+        descriptionSummaryTextBox.PlaceholderText = "이 PC의 목적을 한 줄로 입력";
+        descriptionSummaryTextBox.MaxLength = 100;
+        descriptionSummaryTextBox.Dock = DockStyle.Fill;
+        descriptionDetails = target.DescriptionDetails;
 
         Controls.Add(CreateLayout());
     }
@@ -47,11 +55,12 @@ public sealed class BridgePcEditForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 5,
+            RowCount = 6,
             Padding = new Padding(16)
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
@@ -66,11 +75,56 @@ public sealed class BridgePcEditForm : Form
         layout.Controls.Add(statusPortInput, 1, 2);
         layout.Controls.Add(CreateLabel("RDP Port"), 0, 3);
         layout.Controls.Add(rdpPortInput, 1, 3);
+        layout.Controls.Add(CreateLabel("부가 설명"), 0, 4);
+        layout.Controls.Add(CreateDescriptionPanel(), 1, 4);
 
         var buttons = CreateButtons();
-        layout.Controls.Add(buttons, 0, 4);
+        layout.Controls.Add(buttons, 0, 5);
         layout.SetColumnSpan(buttons, 2);
         return layout;
+    }
+
+    private Control CreateDescriptionPanel()
+    {
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 66));
+
+        var detailButton = new Button
+        {
+            Text = "상세",
+            Dock = DockStyle.Fill,
+            Margin = new Padding(6, 0, 0, 0),
+            TextAlign = ContentAlignment.MiddleCenter
+        };
+        detailButton.Click += (_, _) => OpenDescriptionEditor();
+
+        panel.Controls.Add(descriptionSummaryTextBox, 0, 0);
+        panel.Controls.Add(detailButton, 1, 0);
+        return panel;
+    }
+
+    private void OpenDescriptionEditor()
+    {
+        using var dialog = new BridgePcDescriptionForm(
+            nameTextBox.Text,
+            descriptionSummaryTextBox.Text,
+            descriptionDetails);
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
+        descriptionDetails = dialog.DescriptionDetails;
     }
 
     private Control CreateButtons()
@@ -123,6 +177,8 @@ public sealed class BridgePcEditForm : Form
         {
             Name = name,
             Host = host,
+            DescriptionSummary = descriptionSummaryTextBox.Text.Trim(),
+            DescriptionDetails = descriptionDetails,
             ApiPort = (int)statusPortInput.Value,
             RdpPort = (int)rdpPortInput.Value
         };
