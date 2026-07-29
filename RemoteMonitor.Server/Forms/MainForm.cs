@@ -432,6 +432,18 @@ private bool isMonitoring;
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open", null, (_, _) => ShowFromTray());
         menu.Items.Add("Refresh Status", null, async (_, _) => await RefreshStatusAsync());
+
+        menu.Items.Add(new ToolStripSeparator());
+        var startupMenu = new ToolStripMenuItem("Windows 부팅 시 자동 실행")
+        {
+            Checked = startupRegistrationService.IsRegistered(),
+            CheckOnClick = false
+        };
+        startupMenu.Click += async (_, _) => await ToggleStartupRegistrationAsync(startupMenu);
+        menu.Items.Add(startupMenu);
+        menu.Opening += (_, _) => startupMenu.Checked = startupRegistrationService.IsRegistered();
+
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitFromTray());
 
         var icon = new NotifyIcon
@@ -448,6 +460,43 @@ private bool isMonitoring;
             }
         };
         return icon;
+    }
+
+    private async Task ToggleStartupRegistrationAsync(ToolStripMenuItem startupMenu)
+    {
+        var enable = !startupRegistrationService.IsRegistered();
+        startupMenu.Enabled = false;
+
+        try
+        {
+            await startupRegistrationService.SetRegisteredAsync(enable);
+            startupMenu.Checked = startupRegistrationService.IsRegistered();
+
+            trayIcon.ShowBalloonTip(
+                2500,
+                "RDP Server",
+                enable
+                    ? "Windows 부팅 시 Server 자동 실행을 설정했습니다."
+                    : "Windows 부팅 시 Server 자동 실행을 해제했습니다.",
+                ToolTipIcon.Info);
+        }
+        catch (OperationCanceledException)
+        {
+            startupMenu.Checked = startupRegistrationService.IsRegistered();
+        }
+        catch (Exception exception)
+        {
+            startupMenu.Checked = startupRegistrationService.IsRegistered();
+            MessageBox.Show(
+                $"자동 실행 설정을 변경하지 못했습니다.{Environment.NewLine}{exception.Message}",
+                "RDP Server",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+        finally
+        {
+            startupMenu.Enabled = true;
+        }
     }
 
     private void ShowFromTray()
