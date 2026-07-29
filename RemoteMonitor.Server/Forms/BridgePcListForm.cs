@@ -20,7 +20,7 @@ public sealed class BridgePcListForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(620, 390);
+        ClientSize = new Size(820, 390);
 
         Controls.Add(CreateLayout());
     }
@@ -117,10 +117,11 @@ public sealed class BridgePcListForm : Form
         grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
         grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
         grid.DataSource = targets;
-        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.Name), "PC 이름", 30));
-        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.Host), "IP", 35));
-        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.ApiPort), "Status Port", 18));
-        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.RdpPort), "RDP Port", 17));
+        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.Name), "PC 이름", 20));
+        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.DescriptionSummary), "부가 설명", 30));
+        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.Host), "IP", 25));
+        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.ApiPort), "Status Port", 13));
+        grid.Columns.Add(CreateColumn(nameof(BridgeTarget.RdpPort), "RDP Port", 12));
         grid.CellDoubleClick += (_, eventArgs) =>
         {
             if (eventArgs.RowIndex >= 0)
