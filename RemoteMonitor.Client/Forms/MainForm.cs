@@ -245,7 +245,7 @@ private bool isTrayStatusChecking;
 
         localPcInfoRefreshTimer.Tick += (_, _) => LoadLocalPcInfo();
 
-        automaticCheckStartTimer.Interval = 5000;
+        automaticCheckStartTimer.Interval = 1000;
 
         automaticCheckStartTimer.Tick += async (_, _) =>
         {
@@ -3780,6 +3780,7 @@ private bool isTrayStatusChecking;
 
 
         {
+            var remotePcsToStart = remotePcs.ToArray();
 
 
 
@@ -3795,7 +3796,7 @@ private bool isTrayStatusChecking;
 
 
 
-            foreach (var remotePc in remotePcs)
+            foreach (var remotePc in remotePcsToStart)
 
 
 
@@ -3843,7 +3844,7 @@ private bool isTrayStatusChecking;
 
 
 
-            foreach (var remotePc in remotePcs)
+            foreach (var remotePc in remotePcsToStart)
 
 
 
