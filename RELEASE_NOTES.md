@@ -11,15 +11,12 @@
 
 ## 2026-07-29
 
-### Client 자동 실행 설정
-
-- Client 트레이 메뉴에 `Windows 로그인 시 자동 실행` 체크 옵션 추가
-- 설치 때 자동 실행을 선택하지 않아도 재설치 없이 트레이 메뉴에서 설정 가능
-- 설치 프로그램이 등록한 시스템 자동 실행 항목도 트레이 메뉴에서 해제할 수 있도록 개선
-
 ### v1.1.1 패치
 
 - Client와 Server 버전을 `1.1.1`로 갱신
+- Client 트레이 메뉴에 `Windows 로그인 시 자동 실행` 체크 옵션 추가
+- 설치 때 자동 실행을 선택하지 않아도 재설치 없이 트레이 메뉴에서 설정 가능
+- 설치 프로그램이 등록한 시스템 자동 실행 항목도 트레이 메뉴에서 해제할 수 있도록 개선
 - 내부망에서 주로 사용하는 무토큰 구성을 기본판으로 변경
 - 기본판은 `EnableBridgeToken=false`, `publish`, `installer-output`, `RemoteMonitor_Setup_v1.1.1.exe` 명칭 사용
 - 토큰판은 `EnableBridgeToken=true`, `publish-token`, `installer-output-token`, `RemoteMonitor_Setup_v1.1.1_Token.exe` 명칭 사용
