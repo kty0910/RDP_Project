@@ -50,6 +50,8 @@ public sealed class MainForm : Form
 
     private const int DefaultRdpPort = 3389;
 
+    private const int DescriptionButtonWidth = 38;
+
     private static readonly Color ErrorRowBackColor = Color.FromArgb(255, 235, 235);
 
     private static readonly Color WarningRowBackColor = Color.FromArgb(255, 249, 219);
@@ -1474,6 +1476,8 @@ private bool isTrayStatusChecking;
 
         pcGrid.CellClick += PcGridCellClick;
 
+        pcGrid.CellMouseClick += PcGridCellMouseClick;
+
 
 
         pcGrid.SelectionChanged += PcGridSelectionChanged;
@@ -1488,7 +1492,7 @@ private bool isTrayStatusChecking;
 
 
 
-        pcGrid.CellDoubleClick += PcGridCellDoubleClick;
+        pcGrid.CellMouseDoubleClick += PcGridCellMouseDoubleClick;
 
 
 
@@ -3179,7 +3183,22 @@ private bool isTrayStatusChecking;
 
 
 
-    private void PcGridCellDoubleClick(object? sender, DataGridViewCellEventArgs e)
+    private void PcGridCellMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left
+            || e.RowIndex < 0
+            || e.ColumnIndex < 0
+            || pcGrid.Columns[e.ColumnIndex].Name != "DescriptionSummary"
+            || !IsDescriptionButtonHit(e)
+            || pcGrid.Rows[e.RowIndex].DataBoundItem is not RemotePcRow row)
+        {
+            return;
+        }
+
+        EditRemotePcDescription(row);
+    }
+
+    private void PcGridCellMouseDoubleClick(object? sender, DataGridViewCellMouseEventArgs e)
 
 
 
@@ -3208,6 +3227,11 @@ private bool isTrayStatusChecking;
 
 
         var columnName = pcGrid.Columns[e.ColumnIndex].Name;
+
+        if (columnName == "DescriptionSummary" && IsDescriptionButtonHit(e))
+        {
+            return;
+        }
 
 
 
@@ -3275,6 +3299,47 @@ private bool isTrayStatusChecking;
 
 
 
+        if (pcGrid.Columns[e.ColumnIndex].Name == "DescriptionSummary"
+            && e.Graphics is not null
+            && e.CellStyle is not null)
+        {
+            var isSelected = (e.State & DataGridViewElementStates.Selected) != 0;
+            e.PaintBackground(e.CellBounds, isSelected);
+            e.Paint(e.CellBounds, DataGridViewPaintParts.Border);
+
+            var buttonBounds = GetDescriptionButtonBounds(e.CellBounds);
+            var textBounds = new Rectangle(
+                e.CellBounds.Left + 6,
+                e.CellBounds.Top + 1,
+                Math.Max(0, e.CellBounds.Width - DescriptionButtonWidth - 12),
+                Math.Max(0, e.CellBounds.Height - 2));
+            var textColor = isSelected
+                ? e.CellStyle.SelectionForeColor
+                : e.CellStyle.ForeColor;
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                Convert.ToString(e.FormattedValue) ?? string.Empty,
+                e.CellStyle.Font ?? pcGrid.Font,
+                textBounds,
+                textColor,
+                TextFormatFlags.HorizontalCenter
+                | TextFormatFlags.VerticalCenter
+                | TextFormatFlags.SingleLine
+                | TextFormatFlags.EndEllipsis
+                | TextFormatFlags.NoPrefix
+                | TextFormatFlags.PreserveGraphicsClipping);
+
+            var centerX = buttonBounds.Left + (buttonBounds.Width / 2);
+            var centerY = buttonBounds.Top + (buttonBounds.Height / 2);
+            using var plusPen = new Pen(Color.FromArgb(43, 99, 199), 2F);
+            e.Graphics.DrawLine(plusPen, centerX - 6, centerY, centerX + 6, centerY);
+            e.Graphics.DrawLine(plusPen, centerX, centerY - 6, centerX, centerY + 6);
+
+            e.Handled = true;
+            return;
+        }
+
         if (pcGrid.Columns[e.ColumnIndex].Name == "Connect"
 
 
@@ -3330,6 +3395,21 @@ private bool isTrayStatusChecking;
 
 
 
+
+    private bool IsDescriptionButtonHit(DataGridViewCellMouseEventArgs e)
+    {
+        var columnWidth = pcGrid.Columns[e.ColumnIndex].Width;
+        return e.X >= Math.Max(0, columnWidth - DescriptionButtonWidth);
+    }
+
+    private static Rectangle GetDescriptionButtonBounds(Rectangle cellBounds)
+    {
+        return new Rectangle(
+            cellBounds.Right - DescriptionButtonWidth,
+            cellBounds.Top,
+            DescriptionButtonWidth,
+            cellBounds.Height);
+    }
 
     private void PcGridSelectionChanged(object? sender, EventArgs e)
 
@@ -4785,6 +4865,62 @@ private bool isTrayStatusChecking;
 
 
 
+    private void EditRemotePcDescription(RemotePcRow row)
+    {
+        var original = remotePcs.FirstOrDefault(remotePc => IsSameRemotePc(remotePc, row.RemotePc));
+        if (original is null)
+        {
+            MessageBox.Show(
+                "선택한 원격 PC 정보를 찾을 수 없습니다.",
+                "원격 PC 설명",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
+        using var dialog = new RemotePcDescriptionForm(
+            original.Name,
+            original.DescriptionSummary,
+            original.DescriptionDetails);
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        var updated = CopyWithDescription(
+            original,
+            dialog.DescriptionSummary,
+            dialog.DescriptionDetails);
+        var index = remotePcs.IndexOf(original);
+        remotePcs[index] = updated;
+        pcListService.Save(remotePcs);
+
+        row.UpdateRemotePc(updated);
+        BindGrid();
+    }
+
+    private static RemotePcInfo CopyWithDescription(
+        RemotePcInfo remotePc,
+        string descriptionSummary,
+        string descriptionDetails)
+    {
+        return new RemotePcInfo
+        {
+            Name = remotePc.Name,
+            Host = remotePc.Host,
+            UserId = remotePc.UserId,
+            Password = remotePc.Password,
+            DescriptionSummary = descriptionSummary,
+            DescriptionDetails = descriptionDetails,
+            Port = remotePc.Port,
+            RdpPort = remotePc.RdpPort,
+            UseBridge = remotePc.UseBridge,
+            BridgeHost = remotePc.BridgeHost,
+            BridgeApiPort = remotePc.BridgeApiPort,
+            BridgeToken = remotePc.BridgeToken
+        };
+    }
+
     private void EditSelectedRemotePc()
 
 
@@ -6114,7 +6250,7 @@ private bool isTrayStatusChecking;
             RemotePc = remotePc;
         }
 
-        public RemotePcInfo RemotePc { get; }
+        public RemotePcInfo RemotePc { get; private set; }
 
         public string Name { get; private init; } = string.Empty;
 
@@ -6143,6 +6279,11 @@ private bool isTrayStatusChecking;
         public string StatusButtonText => IsMonitoring ? "종료" : "시작";
 
         public string ConnectButtonText => "접속";
+
+        public void UpdateRemotePc(RemotePcInfo remotePc)
+        {
+            RemotePc = remotePc;
+        }
 
         public void SetDetailOpen(bool isOpen)
         {
