@@ -11,6 +11,7 @@ public sealed class RemotePcEditForm : Form
     private readonly NumericUpDown statusPortInput = new();
     private readonly PersistentPlaceholderTextBox userIdTextBox = new();
     private readonly PersistentPlaceholderTextBox passwordTextBox = new();
+    private readonly PersistentPlaceholderTextBox descriptionSummaryTextBox = new();
     private readonly CheckBox useBridgeCheckBox = new();
     private readonly PersistentPlaceholderTextBox bridgeHostTextBox = new();
     private readonly NumericUpDown bridgeApiPortInput = new();
@@ -20,12 +21,14 @@ public sealed class RemotePcEditForm : Form
     private bool deleteRequested;
 
 #if BRIDGE_TOKEN_REQUIRED
+    private const int BridgeSettingsRowCount = 10;
+    private const int ButtonsRowIndex = 10;
+#else
     private const int BridgeSettingsRowCount = 9;
     private const int ButtonsRowIndex = 9;
-#else
-    private const int BridgeSettingsRowCount = 8;
-    private const int ButtonsRowIndex = 8;
 #endif
+
+    private string descriptionDetails = string.Empty;
 
     public RemotePcInfo RemotePc { get; private set; }
 
@@ -43,9 +46,9 @@ public sealed class RemotePcEditForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
 #if BRIDGE_TOKEN_REQUIRED
-        ClientSize = new Size(520, 396);
+        ClientSize = new Size(520, 430);
 #else
-        ClientSize = new Size(520, 362);
+        ClientSize = new Size(520, 396);
 #endif
 
         nameTextBox.Text = remotePc.Name;
@@ -55,6 +58,8 @@ public sealed class RemotePcEditForm : Form
         statusPortInput.Value = remotePc.Port <= 0 ? 5000 : remotePc.Port;
         userIdTextBox.Text = remotePc.UserId;
         passwordTextBox.Text = remotePc.Password;
+        descriptionSummaryTextBox.Text = remotePc.DescriptionSummary;
+        descriptionDetails = remotePc.DescriptionDetails;
         useBridgeCheckBox.Checked = remotePc.UseBridge;
         bridgeHostTextBox.Text = remotePc.BridgeHost;
         bridgeApiPortInput.Minimum = 1;
@@ -91,6 +96,7 @@ public sealed class RemotePcEditForm : Form
         ConfigureTextBox(hostTextBox);
         ConfigureTextBox(userIdTextBox);
         ConfigureTextBox(passwordTextBox);
+        ConfigureTextBox(descriptionSummaryTextBox);
         ConfigureTextBox(bridgeHostTextBox);
 #if BRIDGE_TOKEN_REQUIRED
         ConfigureTextBox(bridgeTokenTextBox);
@@ -99,6 +105,8 @@ public sealed class RemotePcEditForm : Form
         hostTextBox.PersistentPlaceholder = "ex. 127.0.0.1";
         userIdTextBox.PersistentPlaceholder = "원격 PC ID";
         passwordTextBox.PersistentPlaceholder = "원격 PC PW";
+        descriptionSummaryTextBox.PersistentPlaceholder = "이 PC의 목적을 한 줄로 입력";
+        descriptionSummaryTextBox.MaxLength = 100;
         bridgeHostTextBox.PersistentPlaceholder = "중개 PC IP";
 #if BRIDGE_TOKEN_REQUIRED
         bridgeTokenTextBox.PersistentPlaceholder = "Token";
@@ -125,15 +133,17 @@ public sealed class RemotePcEditForm : Form
         layout.Controls.Add(userIdTextBox, 1, 3);
         layout.Controls.Add(CreateLabel("PW"), 0, 4);
         layout.Controls.Add(passwordTextBox, 1, 4);
-        layout.Controls.Add(useBridgeCheckBox, 0, 5);
+        layout.Controls.Add(CreateLabel("부가 설명"), 0, 5);
+        layout.Controls.Add(CreateDescriptionPanel(), 1, 5);
+        layout.Controls.Add(useBridgeCheckBox, 0, 6);
         layout.SetColumnSpan(useBridgeCheckBox, 2);
-        layout.Controls.Add(CreateLabel("중개 PC IP"), 0, 6);
-        layout.Controls.Add(bridgeHostTextBox, 1, 6);
-        layout.Controls.Add(CreateLabel("중개 PC Port"), 0, 7);
-        layout.Controls.Add(CreateBridgePortPanel(), 1, 7);
+        layout.Controls.Add(CreateLabel("중개 PC IP"), 0, 7);
+        layout.Controls.Add(bridgeHostTextBox, 1, 7);
+        layout.Controls.Add(CreateLabel("중개 PC Port"), 0, 8);
+        layout.Controls.Add(CreateBridgePortPanel(), 1, 8);
 #if BRIDGE_TOKEN_REQUIRED
-        layout.Controls.Add(CreateLabel("Token"), 0, 8);
-        layout.Controls.Add(bridgeTokenTextBox, 1, 8);
+        layout.Controls.Add(CreateLabel("Token"), 0, 9);
+        layout.Controls.Add(bridgeTokenTextBox, 1, 9);
 #endif
 
         var buttons = CreateButtons();
@@ -141,6 +151,49 @@ public sealed class RemotePcEditForm : Form
         layout.SetColumnSpan(buttons, 2);
 
         Controls.Add(layout);
+    }
+
+    private Control CreateDescriptionPanel()
+    {
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 66));
+
+        var detailButton = new Button
+        {
+            Text = "상세",
+            Dock = DockStyle.Fill,
+            Margin = new Padding(6, 0, 0, 0),
+            TextAlign = ContentAlignment.MiddleCenter
+        };
+        detailButton.Click += (_, _) => OpenDescriptionEditor();
+
+        panel.Controls.Add(descriptionSummaryTextBox, 0, 0);
+        panel.Controls.Add(detailButton, 1, 0);
+        return panel;
+    }
+
+    private void OpenDescriptionEditor()
+    {
+        using var dialog = new RemotePcDescriptionForm(
+            string.IsNullOrWhiteSpace(nameTextBox.Text) ? original.Name : nameTextBox.Text,
+            descriptionSummaryTextBox.Text,
+            descriptionDetails);
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
+        descriptionDetails = dialog.DescriptionDetails;
     }
 
     private Control CreateStatusPortPanel()
@@ -412,6 +465,8 @@ public sealed class RemotePcEditForm : Form
             Host = parsedHost,
             UserId = userIdTextBox.Text.Trim(),
             Password = passwordTextBox.Text,
+            DescriptionSummary = descriptionSummaryTextBox.Text.Trim(),
+            DescriptionDetails = descriptionDetails,
             Port = (int)statusPortInput.Value,
             RdpPort = parsedRdpPort,
             UseBridge = useBridgeCheckBox.Checked,
