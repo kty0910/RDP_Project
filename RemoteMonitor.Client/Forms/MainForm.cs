@@ -245,7 +245,7 @@ private bool isTrayStatusChecking;
 
         localPcInfoRefreshTimer.Tick += (_, _) => LoadLocalPcInfo();
 
-        automaticCheckStartTimer.Interval = 5000;
+        automaticCheckStartTimer.Interval = 1000;
 
         automaticCheckStartTimer.Tick += async (_, _) =>
         {
