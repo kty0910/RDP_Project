@@ -1,12 +1,16 @@
 ﻿param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [switch]$SelfContained
+    [switch]$SelfContained,
+    [switch]$Token
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $issPath = Join-Path $PSScriptRoot "RemoteMonitor_Setup.iss"
+$enableBridgeToken = if ($Token) { "true" } else { "false" }
+$publishDirectoryName = if ($Token) { "publish-token" } else { "publish" }
+$publishRoot = Join-Path $root $publishDirectoryName
 
 function Publish-App {
     param(
@@ -27,7 +31,8 @@ function Publish-App {
         "-o", $OutputPath,
         "-p:DebugType=None",
         "-p:DebugSymbols=false",
-        "-p:PublishReadyToRun=false"
+        "-p:PublishReadyToRun=false",
+        "-p:EnableBridgeToken=$enableBridgeToken"
     )
 
     if ($SelfContained) {
@@ -46,15 +51,18 @@ function Publish-App {
     }
 
     dotnet @publishArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet publish failed for '$ProjectPath' with exit code $LASTEXITCODE."
+    }
 }
 
-Publish-App -ProjectPath (Join-Path $root "RemoteMonitor.Client\RemoteMonitor.Client.csproj") -OutputPath (Join-Path $root "publish\client")
-Publish-App -ProjectPath (Join-Path $root "RemoteMonitor.Server\RemoteMonitor.Server.csproj") -OutputPath (Join-Path $root "publish\server")
-Publish-App -ProjectPath (Join-Path $root "RemoteMonitor.Server.Service\RemoteMonitor.Server.Service.csproj") -OutputPath (Join-Path $root "publish\server-service")
+Publish-App -ProjectPath (Join-Path $root "RemoteMonitor.Client\RemoteMonitor.Client.csproj") -OutputPath (Join-Path $publishRoot "client")
+Publish-App -ProjectPath (Join-Path $root "RemoteMonitor.Server\RemoteMonitor.Server.csproj") -OutputPath (Join-Path $publishRoot "server")
+Publish-App -ProjectPath (Join-Path $root "RemoteMonitor.Server.Service\RemoteMonitor.Server.Service.csproj") -OutputPath (Join-Path $publishRoot "server-service")
 
 $bridgeProject = Join-Path $root "RemoteMonitor.Bridge\RemoteMonitor.Bridge.csproj"
 if (Test-Path $bridgeProject) {
-    Publish-App -ProjectPath $bridgeProject -OutputPath (Join-Path $root "publish\bridge")
+    Publish-App -ProjectPath $bridgeProject -OutputPath (Join-Path $publishRoot "bridge")
 }
 
 $iscc = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
@@ -82,7 +90,13 @@ $isccArgs = @()
 if (-not $SelfContained) {
     $isccArgs += "/DFrameworkDependent=1"
 }
+if ($Token) {
+    $isccArgs += "/DTokenBuild=1"
+}
 $isccArgs += $issPath
 & $isccPath @isccArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
+}
 
 

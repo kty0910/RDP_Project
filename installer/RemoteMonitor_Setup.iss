@@ -2,15 +2,17 @@
 
 
 
-#ifdef NoBridgeToken
-#define MyOutputDir "..\installer-output-notoken"
-#define MyPublishDir "..\publish-notoken"
+#ifdef TokenBuild
+#define MyOutputDir "..\installer-output-token"
+#define MyPublishDir "..\publish-token"
+#define MyOutputSuffix "_Token"
 #else
 #define MyOutputDir "..\installer-output"
 #define MyPublishDir "..\publish"
+#define MyOutputSuffix ""
 #endif
 
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.1.2"
 
 #define MyReleaseDate "2026-07-29"
 
@@ -60,7 +62,7 @@ OutputDir={#MyOutputDir}
 
 
 
-OutputBaseFilename=RemoteMonitor_Setup_v{#MyAppVersion}
+OutputBaseFilename=RemoteMonitor_Setup_v{#MyAppVersion}{#MyOutputSuffix}
 
 
 

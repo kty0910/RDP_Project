@@ -2,7 +2,7 @@
 
 프로그램 변경 이력을 날짜별로 기록한다.
 
-- 현재 버전: `v1.1.1`
+- 현재 버전: `v1.1.2`
 - 최신 변경일: `2026-07-29`
 - 날짜가 명확하지 않은 연속 작업은 기간으로 묶어 기록한다.
 - 비밀번호, 계정, Token 등 민감정보는 기록하지 않는다.
@@ -10,6 +10,13 @@
 ---
 
 ## 2026-07-29
+
+### v1.1.2 패치
+
+- 내부망에서 주로 사용하는 무토큰 구성을 기본판으로 변경
+- 기본판은 `EnableBridgeToken=false`, `publish`, `installer-output`, `RemoteMonitor_Setup_v1.1.2.exe` 명칭 사용
+- 토큰판은 `EnableBridgeToken=true`, `publish-token`, `installer-output-token`, `RemoteMonitor_Setup_v1.1.2_Token.exe` 명칭 사용
+- 설치 빌드 스크립트에 `-Token` 선택 항목을 추가하고 README의 빌드·배포 명칭을 새 기준으로 정리
 
 ### v1.1.1 패치
 

@@ -12,7 +12,7 @@ Windows 원격 데스크톱(RDP) 접속 전에 대상 PC의 연결 상태와 현
 - 원격 PC 목록 암호화 저장 및 암호화 백업·복원
 - Client와 Server의 트레이 실행 및 Windows 자동 시작
 - 로그인 전에도 상태 API를 제공하는 Windows Service
-- 일반판과 내부망용 무토큰판 설치 파일 제공
+- 무토큰 기본판과 별도 토큰판 설치 파일 제공
 
 ## 프로젝트 구성
 
@@ -36,8 +36,8 @@ Windows 원격 데스크톱(RDP) 접속 전에 대상 PC의 연결 상태와 현
 
 최신 설치 파일은 [GitHub Releases](https://github.com/kty0910/RDP_Project/releases/latest)에서 받을 수 있습니다.
 
-- `RemoteMonitor_Setup_v1.1.1.exe`: 일반판
-- `RemoteMonitor_Setup_v1.1.1_NoToken.exe`: 무토큰판
+- `RemoteMonitor_Setup_v1.1.2.exe`: 무토큰 기본판
+- `RemoteMonitor_Setup_v1.1.2_Token.exe`: 토큰판
 - `SHA256SUMS.txt`: 설치 파일 무결성 확인용 SHA-256 체크섬
 
 설치 프로그램에서 사용할 구성요소를 선택합니다.
@@ -77,13 +77,19 @@ Release 빌드:
 dotnet build RemoteSessionMonitor.sln -c Release
 ```
 
-일반판 설치 파일 생성:
+무토큰 기본판 설치 파일 생성:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```
 
-생성되는 `publish`, `installer-output`, `outputs` 폴더는 Git에 커밋하지 않습니다.
+토큰판 설치 파일 생성:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Token
+```
+
+기본판은 `publish`와 `installer-output`, 토큰판은 `publish-token`과 `installer-output-token`에 생성됩니다. 생성 결과물은 Git에 커밋하지 않습니다.
 
 ## 브랜치 운영
 

@@ -9,9 +9,9 @@
 
 # Generated publish and installer artifacts
 /publish/
-/publish-notoken/
+/publish-token/
 /installer-output/
-/installer-output-notoken/
+/installer-output-token/
 /outputs/
 
 # Runtime settings, credentials, backups, and logs
