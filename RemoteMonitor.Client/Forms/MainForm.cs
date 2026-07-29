@@ -1759,6 +1759,16 @@ private bool isTrayStatusChecking;
 
 
 
+        trayMenu.Items.Add(new ToolStripSeparator());
+
+        var startupMenu = new ToolStripMenuItem("Windows 로그인 시 자동 실행")
+        {
+            Checked = StartupRegistrationService.IsEnabled(),
+            CheckOnClick = false
+        };
+        startupMenu.Click += (_, _) => ToggleStartupRegistration(startupMenu);
+        trayMenu.Items.Add(startupMenu);
+
         trayMenu.Items.Add("상세모드 열기", null, (_, _) => ShowDetailedMode());
 
 
@@ -2858,6 +2868,38 @@ private bool isTrayStatusChecking;
             var backColor = GetRowBackColor(row);
             gridRow.DefaultCellStyle.BackColor = backColor;
             gridRow.DefaultCellStyle.SelectionBackColor = backColor;
+        }
+    }
+
+    private void ToggleStartupRegistration(ToolStripMenuItem startupMenu)
+    {
+        var enable = !StartupRegistrationService.IsEnabled();
+
+        try
+        {
+            StartupRegistrationService.SetEnabled(enable);
+            startupMenu.Checked = StartupRegistrationService.IsEnabled();
+
+            trayIcon.ShowBalloonTip(
+                2500,
+                "RDP Client",
+                enable
+                    ? "Windows 로그인 시 자동 실행을 설정했습니다."
+                    : "Windows 로그인 시 자동 실행을 해제했습니다.",
+                ToolTipIcon.Info);
+        }
+        catch (OperationCanceledException)
+        {
+            startupMenu.Checked = StartupRegistrationService.IsEnabled();
+        }
+        catch (Exception exception)
+        {
+            startupMenu.Checked = StartupRegistrationService.IsEnabled();
+            MessageBox.Show(
+                $"자동 실행 설정을 변경하지 못했습니다.{Environment.NewLine}{exception.Message}",
+                "RDP Client",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
         }
     }
 
