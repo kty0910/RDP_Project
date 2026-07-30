@@ -6,6 +6,8 @@ namespace RemoteMonitor.Server.Forms;
 
 public sealed class BridgePcListForm : Form
 {
+    private const int DescriptionButtonWidth = 38;
+
     private readonly FileLogger logger;
     private readonly BindingList<BridgeTarget> targets;
     private readonly DataGridView grid = new();
@@ -122,13 +124,105 @@ public sealed class BridgePcListForm : Form
         grid.Columns.Add(CreateColumn(nameof(BridgeTarget.Host), "IP", 25));
         grid.Columns.Add(CreateColumn(nameof(BridgeTarget.ApiPort), "Status Port", 13));
         grid.Columns.Add(CreateColumn(nameof(BridgeTarget.RdpPort), "RDP Port", 12));
-        grid.CellDoubleClick += (_, eventArgs) =>
+        grid.CellPainting += GridCellPainting;
+        grid.CellMouseClick += GridCellMouseClick;
+        grid.CellMouseDoubleClick += GridCellMouseDoubleClick;
+    }
+
+    private void GridCellMouseClick(object? sender, DataGridViewCellMouseEventArgs eventArgs)
+    {
+        if (eventArgs.Button != MouseButtons.Left
+            || eventArgs.RowIndex < 0
+            || eventArgs.ColumnIndex < 0
+            || !IsDescriptionColumn(eventArgs.ColumnIndex)
+            || !IsDescriptionButtonHit(eventArgs))
         {
-            if (eventArgs.RowIndex >= 0)
-            {
-                EditTarget(eventArgs.RowIndex);
-            }
-        };
+            return;
+        }
+
+        EditTargetDescription(eventArgs.RowIndex);
+    }
+
+    private void GridCellMouseDoubleClick(object? sender, DataGridViewCellMouseEventArgs eventArgs)
+    {
+        if (eventArgs.RowIndex < 0 || eventArgs.ColumnIndex < 0)
+        {
+            return;
+        }
+
+        if (IsDescriptionColumn(eventArgs.ColumnIndex) && IsDescriptionButtonHit(eventArgs))
+        {
+            return;
+        }
+
+        EditTarget(eventArgs.RowIndex);
+    }
+
+    private void GridCellPainting(object? sender, DataGridViewCellPaintingEventArgs eventArgs)
+    {
+        if (eventArgs.RowIndex < 0
+            || eventArgs.ColumnIndex < 0
+            || !IsDescriptionColumn(eventArgs.ColumnIndex)
+            || eventArgs.Graphics is null
+            || eventArgs.CellStyle is null)
+        {
+            return;
+        }
+
+        var isSelected = (eventArgs.State & DataGridViewElementStates.Selected) != 0;
+        eventArgs.PaintBackground(eventArgs.CellBounds, isSelected);
+        eventArgs.Paint(eventArgs.CellBounds, DataGridViewPaintParts.Border);
+
+        var buttonBounds = GetDescriptionButtonBounds(eventArgs.CellBounds);
+        var textBounds = new Rectangle(
+            eventArgs.CellBounds.Left + 6,
+            eventArgs.CellBounds.Top + 1,
+            Math.Max(0, eventArgs.CellBounds.Width - DescriptionButtonWidth - 12),
+            Math.Max(0, eventArgs.CellBounds.Height - 2));
+        var textColor = isSelected
+            ? eventArgs.CellStyle.SelectionForeColor
+            : eventArgs.CellStyle.ForeColor;
+
+        TextRenderer.DrawText(
+            eventArgs.Graphics,
+            Convert.ToString(eventArgs.FormattedValue) ?? string.Empty,
+            eventArgs.CellStyle.Font ?? grid.Font,
+            textBounds,
+            textColor,
+            TextFormatFlags.HorizontalCenter
+            | TextFormatFlags.VerticalCenter
+            | TextFormatFlags.SingleLine
+            | TextFormatFlags.EndEllipsis
+            | TextFormatFlags.NoPrefix
+            | TextFormatFlags.PreserveGraphicsClipping);
+
+        var centerX = buttonBounds.Left + (buttonBounds.Width / 2);
+        var centerY = buttonBounds.Top + (buttonBounds.Height / 2);
+        using var plusPen = new Pen(Color.Black, 2F);
+        eventArgs.Graphics.DrawLine(plusPen, centerX - 6, centerY, centerX + 6, centerY);
+        eventArgs.Graphics.DrawLine(plusPen, centerX, centerY - 6, centerX, centerY + 6);
+
+        eventArgs.Handled = true;
+    }
+
+    private bool IsDescriptionColumn(int columnIndex)
+    {
+        return grid.Columns[columnIndex].DataPropertyName == nameof(BridgeTarget.DescriptionSummary);
+    }
+
+    private bool IsDescriptionButtonHit(DataGridViewCellMouseEventArgs eventArgs)
+    {
+        var columnWidth = grid.Columns[eventArgs.ColumnIndex].Width;
+        return eventArgs.X >= Math.Max(0, columnWidth - DescriptionButtonWidth);
+    }
+
+    private static Rectangle GetDescriptionButtonBounds(Rectangle cellBounds)
+    {
+        return new Rectangle(
+            cellBounds.Right - DescriptionButtonWidth,
+            cellBounds.Top,
+            DescriptionButtonWidth,
+            cellBounds.Height);
     }
 
     private void AddTarget()
@@ -166,6 +260,30 @@ public sealed class BridgePcListForm : Form
 
         targets.RaiseListChangedEvents = true;
         targets.ResetBindings();
+        SaveTargets();
+    }
+
+    private void EditTargetDescription(int index)
+    {
+        var original = targets[index];
+        using var dialog = new BridgePcDescriptionForm(
+            original.Name,
+            original.DescriptionSummary,
+            original.DescriptionDetails);
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        targets[index] = new BridgeTarget
+        {
+            Name = original.Name,
+            Host = original.Host,
+            DescriptionSummary = dialog.DescriptionSummary,
+            DescriptionDetails = dialog.DescriptionDetails,
+            ApiPort = original.ApiPort,
+            RdpPort = original.RdpPort
+        };
         SaveTargets();
     }
 
