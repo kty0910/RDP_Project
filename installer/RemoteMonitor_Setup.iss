@@ -132,11 +132,11 @@ Name: "server"; Description: "Server 설치"; Types: custom; Flags: checkablealo
 
 
 
-Name: "clientdesktopicon"; Description: "Client 바탕화면 아이콘 생성"; GroupDescription: "Client 추가 작업:"; Components: client; Flags: unchecked
+Name: "clientdesktopicon"; Description: "바탕화면 바로가기 생성"; GroupDescription: "Client 추가 작업:"; Components: client; Flags: unchecked
 
 
 
-Name: "clientstartmenu"; Description: "Client 시작 메뉴 바로가기 등록"; GroupDescription: "Client 추가 작업:"; Components: client
+Name: "clientstartmenu"; Description: "시작메뉴 바로가기 추가"; GroupDescription: "Client 추가 작업:"; Components: client
 
 
 
@@ -144,11 +144,11 @@ Name: "clientstartup"; Description: "Windows 로그인 시 자동 실행"; Group
 
 
 
-Name: "serverdesktopicon"; Description: "Server 바탕화면 아이콘 생성"; GroupDescription: "Server 추가 작업:"; Components: server; Flags: unchecked
+Name: "serverdesktopicon"; Description: "바탕화면 바로가기 생성"; GroupDescription: "Server 추가 작업:"; Components: server; Flags: unchecked
 
 
 
-Name: "serverstartmenu"; Description: "Server 시작 메뉴 바로가기 등록"; GroupDescription: "Server 추가 작업:"; Components: server
+Name: "serverstartmenu"; Description: "시작메뉴 바로가기 추가"; GroupDescription: "Server 추가 작업:"; Components: server
 
 
 
@@ -754,6 +754,24 @@ begin
 
 
 
+end;
+
+
+
+function GetPreferredClientDir(): String;
+begin
+  Result := GetInstalledClientDir();
+  if not FileExists(AddBackslash(Result) + 'RemoteMonitor.Client.exe') then
+    Result := 'C:\RDP\Client';
+end;
+
+
+
+function GetPreferredServerDir(): String;
+begin
+  Result := GetInstalledServerDir();
+  if not FileExists(AddBackslash(Result) + 'RemoteMonitor.Server.exe') then
+    Result := 'C:\RDP\Server';
 end;
 
 
@@ -1607,11 +1625,11 @@ begin
 
 
 
-    InstallDirPage.Values[0] := 'C:\RDP\Client';
+    InstallDirPage.Values[0] := GetPreferredClientDir();
 
 
 
-    InstallDirPage.Values[1] := 'C:\RDP\Server';
+    InstallDirPage.Values[1] := GetPreferredServerDir();
 
 
 
@@ -1647,7 +1665,7 @@ begin
 
 
 
-    InstallDirPage.Values[0] := 'C:\RDP\Client';
+    InstallDirPage.Values[0] := GetPreferredClientDir();
 
 
 
@@ -1671,7 +1689,7 @@ begin
 
 
 
-    InstallDirPage.Values[0] := 'C:\RDP\Server';
+    InstallDirPage.Values[0] := GetPreferredServerDir();
 
 
 
@@ -1993,11 +2011,11 @@ begin
 
 
 
-  InstallDirPage.Values[0] := 'C:\RDP\Client';
+  InstallDirPage.Values[0] := GetPreferredClientDir();
 
 
 
-  InstallDirPage.Values[1] := 'C:\RDP\Server';
+  InstallDirPage.Values[1] := GetPreferredServerDir();
 
 
 
