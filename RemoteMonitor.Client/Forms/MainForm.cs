@@ -4859,6 +4859,16 @@ private bool isTrayStatusChecking;
                 return;
             }
 
+            if (remotePcEditForms.TryGetValue(editorKey, out var editForm)
+                && !editForm.IsDisposed)
+            {
+                editForm.UpdateDescriptionDraft(
+                    dialog.DescriptionSummary,
+                    dialog.DescriptionDetails,
+                    dialog.DescriptionDetailsRtf);
+                return;
+            }
+
             var index = remotePcs.IndexOf(original);
             if (index < 0)
             {
@@ -4873,15 +4883,6 @@ private bool isTrayStatusChecking;
                 dialog.DescriptionDetailsRtf);
             remotePcs[index] = updated;
             pcListService.Save(remotePcs);
-
-            if (remotePcEditForms.TryGetValue(editorKey, out var editForm)
-                && !editForm.IsDisposed)
-            {
-                editForm.UpdateDescriptionDraft(
-                    updated.DescriptionSummary,
-                    updated.DescriptionDetails,
-                    updated.DescriptionDetailsRtf);
-            }
 
             row.UpdateRemotePc(updated);
             BindGrid();

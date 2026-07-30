@@ -306,6 +306,16 @@ public sealed class BridgePcListForm : Form
                 return;
             }
 
+            if (targetEditForms.TryGetValue(editorKey, out var editForm)
+                && !editForm.IsDisposed)
+            {
+                editForm.UpdateDescriptionDraft(
+                    dialog.DescriptionSummary,
+                    dialog.DescriptionDetails,
+                    dialog.DescriptionDetailsRtf);
+                return;
+            }
+
             var currentIndex = FindTargetIndex(editorKey);
             if (currentIndex < 0)
             {
@@ -324,15 +334,6 @@ public sealed class BridgePcListForm : Form
                 RdpPort = original.RdpPort
             };
             targets[currentIndex] = updated;
-
-            if (targetEditForms.TryGetValue(editorKey, out var editForm)
-                && !editForm.IsDisposed)
-            {
-                editForm.UpdateDescriptionDraft(
-                    updated.DescriptionSummary,
-                    updated.DescriptionDetails,
-                    updated.DescriptionDetailsRtf);
-            }
 
             SaveTargets();
         };

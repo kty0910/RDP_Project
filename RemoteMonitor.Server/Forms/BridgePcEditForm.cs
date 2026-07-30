@@ -139,11 +139,6 @@ public sealed class BridgePcEditForm : Form
 
         if (descriptionFormProvider?.Invoke() is { IsDisposed: false } openDescriptionForm)
         {
-            MessageBox.Show(
-                "메인 화면에서 연 부가설명 창이 이미 열려 있습니다.\n부가설명 창에서 완료 또는 취소를 먼저 눌러 주세요.",
-                Text,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
             RestoreAndActivate(openDescriptionForm);
             return;
         }
