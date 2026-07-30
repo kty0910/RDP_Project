@@ -1,4 +1,5 @@
 using System.Drawing.Text;
+using System.Runtime.InteropServices;
 
 namespace RemoteMonitor.Shared.Forms;
 
@@ -7,7 +8,7 @@ internal sealed class RichDescriptionEditor : UserControl
     private const int DetailsMaxLength = 4000;
     private static readonly float[] FontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
 
-    private readonly RichTextBox editor = new();
+    private readonly RichTextBox editor = new FixedFontRichTextBox();
     private readonly ToolStripComboBox fontFamilyComboBox = new();
     private readonly ToolStripComboBox fontSizeComboBox = new();
     private readonly ToolStripButton boldButton;
@@ -23,11 +24,13 @@ internal sealed class RichDescriptionEditor : UserControl
         Margin = Padding.Empty;
 
         editor.Dock = DockStyle.Fill;
+        editor.AutoWordSelection = false;
         editor.BorderStyle = BorderStyle.FixedSingle;
         editor.AcceptsTab = true;
         editor.DetectUrls = true;
         editor.EnableAutoDragDrop = true;
         editor.HideSelection = false;
+        editor.Font = new Font("맑은 고딕", 10F);
         editor.MaxLength = DetailsMaxLength;
         editor.ScrollBars = RichTextBoxScrollBars.Both;
         editor.WordWrap = true;
@@ -60,6 +63,8 @@ internal sealed class RichDescriptionEditor : UserControl
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(fontFamilyComboBox);
         toolStrip.Items.Add(fontSizeComboBox);
+        toolStrip.Items.Add(CreateButton("글자 크기 줄이기 (Ctrl+Shift+<)", "−", (_, _) => ChangeFontSize(-1)));
+        toolStrip.Items.Add(CreateButton("글자 크기 늘리기 (Ctrl+Shift+>)", "+", (_, _) => ChangeFontSize(1)));
         toolStrip.Items.Add(new ToolStripSeparator());
 
         boldButton = CreateToggleButton("굵게", "B", FontStyle.Bold);
@@ -70,7 +75,7 @@ internal sealed class RichDescriptionEditor : UserControl
         toolStrip.Items.Add(italicButton);
         toolStrip.Items.Add(underlineButton);
         toolStrip.Items.Add(strikeoutButton);
-        toolStrip.Items.Add(CreateButton("글자색", "색", (_, _) => ChooseTextColor()));
+        toolStrip.Items.Add(CreateButton("글자색", "글자색", (_, _) => ChooseTextColor()));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(CreateButton("왼쪽 정렬", "L", (_, _) => editor.SelectionAlignment = HorizontalAlignment.Left));
         toolStrip.Items.Add(CreateButton("가운데 정렬", "C", (_, _) => editor.SelectionAlignment = HorizontalAlignment.Center));
@@ -90,7 +95,7 @@ internal sealed class RichDescriptionEditor : UserControl
         {
             editor.SelectionIndent += 20;
         }));
-        toolStrip.Items.Add(CreateButton("서식 지우기", "지우기", (_, _) => ClearSelectionFormatting()));
+        toolStrip.Items.Add(CreateButton("서식 지우기", "서식 지우기", (_, _) => ClearSelectionFormatting()));
 
         var layout = new TableLayoutPanel
         {
@@ -109,6 +114,7 @@ internal sealed class RichDescriptionEditor : UserControl
 
         LoadContents(plainText, rtfText);
         editor.SelectionChanged += (_, _) => UpdateToolbarState();
+        editor.KeyDown += EditorKeyDown;
         UpdateToolbarState();
     }
 
@@ -215,6 +221,37 @@ internal sealed class RichDescriptionEditor : UserControl
         }
     }
 
+    private void ChangeFontSize(float delta)
+    {
+        var currentSize = editor.SelectionFont?.Size ?? editor.Font.Size;
+        ApplySelectionFont(null, Math.Clamp(currentSize + delta, 6F, 96F), null);
+        UpdateToolbarState();
+    }
+
+    private void EditorKeyDown(object? sender, KeyEventArgs eventArgs)
+    {
+        if (!eventArgs.Control || !eventArgs.Shift)
+        {
+            return;
+        }
+
+        if (eventArgs.KeyCode == Keys.Oemcomma)
+        {
+            ChangeFontSize(-1);
+        }
+        else if (eventArgs.KeyCode == Keys.OemPeriod)
+        {
+            ChangeFontSize(1);
+        }
+        else
+        {
+            return;
+        }
+
+        eventArgs.Handled = true;
+        eventArgs.SuppressKeyPress = true;
+    }
+
     private void ClearSelectionFormatting()
     {
         editor.SelectionFont = editor.Font;
@@ -266,5 +303,39 @@ internal sealed class RichDescriptionEditor : UserControl
         {
             isUpdatingToolbar = false;
         }
+    }
+
+    private sealed class FixedFontRichTextBox : RichTextBox
+    {
+        private const int WmUser = 0x0400;
+        private const int EmSetLanguageOptions = WmUser + 120;
+        private const int EmGetLanguageOptions = WmUser + 121;
+        private const int ImfAutoFont = 0x0002;
+        private const int ImfAutoFontSizeAdjust = 0x0010;
+        private const int ImfDualFont = 0x0080;
+
+        protected override void OnHandleCreated(EventArgs eventArgs)
+        {
+            base.OnHandleCreated(eventArgs);
+
+            var options = SendMessage(
+                Handle,
+                EmGetLanguageOptions,
+                IntPtr.Zero,
+                IntPtr.Zero).ToInt32();
+            options &= ~(ImfAutoFont | ImfAutoFontSizeAdjust | ImfDualFont);
+            SendMessage(
+                Handle,
+                EmSetLanguageOptions,
+                IntPtr.Zero,
+                new IntPtr(options));
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(
+            IntPtr windowHandle,
+            int message,
+            IntPtr wordParameter,
+            IntPtr longParameter);
     }
 }

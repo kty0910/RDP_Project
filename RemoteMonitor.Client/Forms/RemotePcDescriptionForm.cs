@@ -21,7 +21,7 @@ public sealed class RemotePcDescriptionForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(760, 540);
+        ClientSize = new Size(960, 560);
 
         summaryTextBox.Text = summary ?? string.Empty;
         summaryTextBox.MaxLength = SummaryMaxLength;
