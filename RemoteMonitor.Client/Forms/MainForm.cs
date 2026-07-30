@@ -3188,7 +3188,7 @@ private bool isTrayStatusChecking;
         if (e.Button != MouseButtons.Left
             || e.RowIndex < 0
             || e.ColumnIndex < 0
-            || pcGrid.Columns[e.ColumnIndex].Name != "DescriptionSummary"
+            || !IsDescriptionColumn(e.ColumnIndex)
             || !IsDescriptionButtonHit(e)
             || pcGrid.Rows[e.RowIndex].DataBoundItem is not RemotePcRow row)
         {
@@ -3228,7 +3228,7 @@ private bool isTrayStatusChecking;
 
         var columnName = pcGrid.Columns[e.ColumnIndex].Name;
 
-        if (columnName == "DescriptionSummary" && IsDescriptionButtonHit(e))
+        if (IsDescriptionColumn(e.ColumnIndex) && IsDescriptionButtonHit(e))
         {
             return;
         }
@@ -3299,7 +3299,7 @@ private bool isTrayStatusChecking;
 
 
 
-        if (pcGrid.Columns[e.ColumnIndex].Name == "DescriptionSummary"
+        if (IsDescriptionColumn(e.ColumnIndex)
             && e.Graphics is not null
             && e.CellStyle is not null)
         {
@@ -3400,6 +3400,11 @@ private bool isTrayStatusChecking;
     {
         var columnWidth = pcGrid.Columns[e.ColumnIndex].Width;
         return e.X >= Math.Max(0, columnWidth - DescriptionButtonWidth);
+    }
+
+    private bool IsDescriptionColumn(int columnIndex)
+    {
+        return pcGrid.Columns[columnIndex].DataPropertyName == "DescriptionSummary";
     }
 
     private static Rectangle GetDescriptionButtonBounds(Rectangle cellBounds)
