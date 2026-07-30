@@ -133,6 +133,7 @@ public sealed class BridgeOptions
                     Host = target.Host.Trim(),
                     DescriptionSummary = target.DescriptionSummary?.Trim() ?? string.Empty,
                     DescriptionDetails = target.DescriptionDetails?.Trim() ?? string.Empty,
+                    DescriptionDetailsRtf = target.DescriptionDetailsRtf ?? string.Empty,
                     ApiPort = target.ApiPort <= 0 ? 5000 : target.ApiPort,
                     RdpPort = target.RdpPort <= 0 ? 3389 : target.RdpPort
                 })

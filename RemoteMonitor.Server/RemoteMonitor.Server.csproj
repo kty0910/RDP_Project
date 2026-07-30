@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\Assets\server-r.ico" LogicalName="RemoteMonitor.Server.AppIconR" />
+    <Compile Include="..\Shared\RichDescriptionEditor.cs" Link="Forms\RichDescriptionEditor.cs" />
   </ItemGroup>
 
 </Project>

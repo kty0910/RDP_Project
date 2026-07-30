@@ -10,6 +10,8 @@ public sealed class BridgeTarget
 
     public string DescriptionDetails { get; init; } = string.Empty;
 
+    public string DescriptionDetailsRtf { get; init; } = string.Empty;
+
     public int ApiPort { get; init; } = 5000;
 
     public int RdpPort { get; init; } = 3389;

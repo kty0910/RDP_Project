@@ -4887,7 +4887,8 @@ private bool isTrayStatusChecking;
         using var dialog = new RemotePcDescriptionForm(
             original.Name,
             original.DescriptionSummary,
-            original.DescriptionDetails);
+            original.DescriptionDetails,
+            original.DescriptionDetailsRtf);
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -4896,7 +4897,8 @@ private bool isTrayStatusChecking;
         var updated = CopyWithDescription(
             original,
             dialog.DescriptionSummary,
-            dialog.DescriptionDetails);
+            dialog.DescriptionDetails,
+            dialog.DescriptionDetailsRtf);
         var index = remotePcs.IndexOf(original);
         remotePcs[index] = updated;
         pcListService.Save(remotePcs);
@@ -4908,7 +4910,8 @@ private bool isTrayStatusChecking;
     private static RemotePcInfo CopyWithDescription(
         RemotePcInfo remotePc,
         string descriptionSummary,
-        string descriptionDetails)
+        string descriptionDetails,
+        string descriptionDetailsRtf)
     {
         return new RemotePcInfo
         {
@@ -4918,6 +4921,7 @@ private bool isTrayStatusChecking;
             Password = remotePc.Password,
             DescriptionSummary = descriptionSummary,
             DescriptionDetails = descriptionDetails,
+            DescriptionDetailsRtf = descriptionDetailsRtf,
             Port = remotePc.Port,
             RdpPort = remotePc.RdpPort,
             UseBridge = remotePc.UseBridge,

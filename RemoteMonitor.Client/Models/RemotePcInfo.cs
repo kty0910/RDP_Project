@@ -14,6 +14,8 @@ public sealed class RemotePcInfo
 
     public string DescriptionDetails { get; init; } = string.Empty;
 
+    public string DescriptionDetailsRtf { get; init; } = string.Empty;
+
     public int Port { get; init; } = 5000;
 
     public int RdpPort { get; init; } = 3389;
