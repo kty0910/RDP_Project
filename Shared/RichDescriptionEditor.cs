@@ -62,6 +62,9 @@ internal sealed class RichDescriptionEditor : UserControl
         private const int ImfAutoFontSizeAdjust = 0x0010;
         private const int ImfDualFont = 0x0080;
 
+        private bool isSelectingFromLineEnd;
+        private int selectionAnchor;
+
         protected override void OnHandleCreated(EventArgs eventArgs)
         {
             base.OnHandleCreated(eventArgs);
@@ -77,6 +80,134 @@ internal sealed class RichDescriptionEditor : UserControl
                 EmSetLanguageOptions,
                 IntPtr.Zero,
                 new IntPtr(options));
+        }
+
+        protected override void OnMouseDown(MouseEventArgs eventArgs)
+        {
+            if (eventArgs.Button == MouseButtons.Left
+                && TryGetTrailingLineEnd(eventArgs.Location, out var lineEnd))
+            {
+                Focus();
+                selectionAnchor = lineEnd;
+                Select(selectionAnchor, 0);
+                isSelectingFromLineEnd = true;
+                Capture = true;
+                return;
+            }
+
+            isSelectingFromLineEnd = false;
+            base.OnMouseDown(eventArgs);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs eventArgs)
+        {
+            if (!isSelectingFromLineEnd)
+            {
+                base.OnMouseMove(eventArgs);
+                return;
+            }
+
+            if ((eventArgs.Button & MouseButtons.Left) == 0)
+            {
+                FinishLineEndSelection();
+                return;
+            }
+
+            var currentIndex = GetCaretIndexFromPosition(eventArgs.Location);
+            Select(
+                Math.Min(selectionAnchor, currentIndex),
+                Math.Abs(selectionAnchor - currentIndex));
+        }
+
+        protected override void OnMouseUp(MouseEventArgs eventArgs)
+        {
+            if (isSelectingFromLineEnd && eventArgs.Button == MouseButtons.Left)
+            {
+                FinishLineEndSelection();
+                return;
+            }
+
+            base.OnMouseUp(eventArgs);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs eventArgs)
+        {
+            if (!Capture)
+            {
+                isSelectingFromLineEnd = false;
+            }
+
+            base.OnMouseCaptureChanged(eventArgs);
+        }
+
+        private bool TryGetTrailingLineEnd(Point point, out int lineEnd)
+        {
+            lineEnd = GetLineEndFromPosition(point);
+            var endPosition = GetPositionFromCharIndex(lineEnd);
+            return IsSameVisualLine(point, endPosition)
+                && point.X >= endPosition.X;
+        }
+
+        private int GetCaretIndexFromPosition(Point point)
+        {
+            var lineEnd = GetLineEndFromPosition(point);
+            var endPosition = GetPositionFromCharIndex(lineEnd);
+            if (IsSameVisualLine(point, endPosition)
+                && point.X >= endPosition.X)
+            {
+                return lineEnd;
+            }
+
+            var characterIndex = Math.Clamp(
+                GetCharIndexFromPosition(point),
+                0,
+                TextLength);
+            if (characterIndex >= lineEnd)
+            {
+                return lineEnd;
+            }
+
+            var characterStart = GetPositionFromCharIndex(characterIndex);
+            var nextCharacterStart = GetPositionFromCharIndex(characterIndex + 1);
+            if (characterStart.Y != nextCharacterStart.Y)
+            {
+                return point.X >= characterStart.X
+                    ? characterIndex + 1
+                    : characterIndex;
+            }
+
+            var characterMidpoint = characterStart.X
+                + ((nextCharacterStart.X - characterStart.X) / 2);
+            return point.X >= characterMidpoint
+                ? characterIndex + 1
+                : characterIndex;
+        }
+
+        private bool IsSameVisualLine(Point point, Point characterPosition)
+        {
+            return Math.Abs(point.Y - characterPosition.Y) <= Font.Height;
+        }
+
+        private int GetLineEndFromPosition(Point point)
+        {
+            var characterIndex = Math.Clamp(
+                GetCharIndexFromPosition(point),
+                0,
+                TextLength);
+            var lineIndex = GetLineFromCharIndex(characterIndex);
+            var lineStart = GetFirstCharIndexFromLine(lineIndex);
+            if (lineStart < 0 || lineIndex < 0 || lineIndex >= Lines.Length)
+            {
+                return TextLength;
+            }
+
+            return Math.Min(TextLength, lineStart + Lines[lineIndex].Length);
+        }
+
+        private void FinishLineEndSelection()
+        {
+            isSelectingFromLineEnd = false;
+            Capture = false;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
