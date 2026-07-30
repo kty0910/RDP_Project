@@ -17,6 +17,13 @@ public sealed class BridgePcEditForm : Form
     private string descriptionDetailsRtf = string.Empty;
     private BridgePcDescriptionForm? descriptionForm;
 
+    public void UpdateDescriptionDraft(string summary, string details, string detailsRtf)
+    {
+        descriptionSummaryTextBox.Text = summary ?? string.Empty;
+        descriptionDetails = details ?? string.Empty;
+        descriptionDetailsRtf = detailsRtf ?? string.Empty;
+    }
+
     public BridgePcEditForm(
         BridgeTarget target,
         bool allowDelete,

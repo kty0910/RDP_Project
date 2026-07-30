@@ -38,6 +38,13 @@ public sealed class RemotePcEditForm : Form
 
     public bool IsDeleteRequested => deleteRequested;
 
+    public void UpdateDescriptionDraft(string summary, string details, string detailsRtf)
+    {
+        descriptionSummaryTextBox.Text = summary ?? string.Empty;
+        descriptionDetails = details ?? string.Empty;
+        descriptionDetailsRtf = detailsRtf ?? string.Empty;
+    }
+
     public RemotePcEditForm(
         RemotePcInfo remotePc,
         bool allowDelete = true,

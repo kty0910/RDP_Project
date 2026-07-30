@@ -4851,7 +4851,6 @@ private bool isTrayStatusChecking;
             original.DescriptionSummary,
             original.DescriptionDetails,
             original.DescriptionDetailsRtf);
-        dialog.CompletionValidator = () => CanCompleteDirectDescription(editorKey);
         RegisterRemotePcDescription(editorKey, dialog);
         dialog.FormClosed += (_, _) =>
         {
@@ -4874,6 +4873,15 @@ private bool isTrayStatusChecking;
                 dialog.DescriptionDetailsRtf);
             remotePcs[index] = updated;
             pcListService.Save(remotePcs);
+
+            if (remotePcEditForms.TryGetValue(editorKey, out var editForm)
+                && !editForm.IsDisposed)
+            {
+                editForm.UpdateDescriptionDraft(
+                    updated.DescriptionSummary,
+                    updated.DescriptionDetails,
+                    updated.DescriptionDetailsRtf);
+            }
 
             row.UpdateRemotePc(updated);
             BindGrid();
@@ -4930,24 +4938,6 @@ private bool isTrayStatusChecking;
                 remotePcDescriptionForms.Remove(editorKey);
             }
         };
-    }
-
-    private bool CanCompleteDirectDescription(string editorKey)
-    {
-        if (!remotePcEditForms.TryGetValue(editorKey, out var editForm)
-            || editForm.IsDisposed)
-        {
-            remotePcEditForms.Remove(editorKey);
-            return true;
-        }
-
-        MessageBox.Show(
-            "원격 PC 수정 창이 열려 있어 부가설명을 완료할 수 없습니다.\n수정 창에서 완료 또는 취소를 먼저 눌러 주세요.",
-            "원격 PC 설명",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Warning);
-        RestoreAndActivate(editForm);
-        return false;
     }
 
     private static void RestoreAndActivate(Form form)
@@ -5095,14 +5085,17 @@ private bool isTrayStatusChecking;
                 return;
             }
 
-            var currentIndex = remotePcs.IndexOf(original);
+            var currentIndex = remotePcs.FindIndex(
+                remotePc => GetRemotePcKey(remotePc).Equals(
+                    editorKey,
+                    StringComparison.OrdinalIgnoreCase));
             if (currentIndex < 0)
             {
                 ShowRemotePcChangedWarning();
                 return;
             }
 
-            var oldKey = GetRemotePcKey(original);
+            var oldKey = editorKey;
 
 
 
@@ -5118,7 +5111,7 @@ private bool isTrayStatusChecking;
 
 
 
-            remotePcs.Remove(original);
+            remotePcs.RemoveAt(currentIndex);
 
 
 
@@ -5154,11 +5147,7 @@ private bool isTrayStatusChecking;
 
 
 
-        var index = remotePcs.IndexOf(original);
-
-
-
-        remotePcs[index] = dialog.RemotePc;
+        remotePcs[currentIndex] = dialog.RemotePc;
 
 
 

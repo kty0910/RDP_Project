@@ -11,10 +11,10 @@ public sealed class BridgePcListForm : Form
     private readonly FileLogger logger;
     private readonly BindingList<BridgeTarget> targets;
     private readonly DataGridView grid = new();
-    private readonly Dictionary<BridgeTarget, BridgePcEditForm> targetEditForms =
-        new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<BridgeTarget, BridgePcDescriptionForm> targetDescriptionForms =
-        new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, BridgePcEditForm> targetEditForms =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, BridgePcDescriptionForm> targetDescriptionForms =
+        new(StringComparer.OrdinalIgnoreCase);
     private BridgePcEditForm? addTargetForm;
 
     public BridgePcListForm(FileLogger logger)
@@ -287,7 +287,8 @@ public sealed class BridgePcListForm : Form
     private void EditTargetDescription(int index)
     {
         var original = targets[index];
-        if (TryActivateTargetDescription(original))
+        var editorKey = GetTargetKey(original);
+        if (TryActivateTargetDescription(editorKey))
         {
             return;
         }
@@ -297,8 +298,7 @@ public sealed class BridgePcListForm : Form
             original.DescriptionSummary,
             original.DescriptionDetails,
             original.DescriptionDetailsRtf);
-        dialog.CompletionValidator = () => CanCompleteDirectDescription(original);
-        RegisterTargetDescription(original, dialog);
+        RegisterTargetDescription(editorKey, dialog);
         dialog.FormClosed += (_, _) =>
         {
             if (dialog.DialogResult != DialogResult.OK)
@@ -306,14 +306,14 @@ public sealed class BridgePcListForm : Form
                 return;
             }
 
-            var currentIndex = targets.IndexOf(original);
+            var currentIndex = FindTargetIndex(editorKey);
             if (currentIndex < 0)
             {
                 ShowTargetChangedWarning();
                 return;
             }
 
-            targets[currentIndex] = new BridgeTarget
+            var updated = new BridgeTarget
             {
                 Name = original.Name,
                 Host = original.Host,
@@ -323,6 +323,17 @@ public sealed class BridgePcListForm : Form
                 ApiPort = original.ApiPort,
                 RdpPort = original.RdpPort
             };
+            targets[currentIndex] = updated;
+
+            if (targetEditForms.TryGetValue(editorKey, out var editForm)
+                && !editForm.IsDisposed)
+            {
+                editForm.UpdateDescriptionDraft(
+                    updated.DescriptionSummary,
+                    updated.DescriptionDetails,
+                    updated.DescriptionDetailsRtf);
+            }
+
             SaveTargets();
         };
         dialog.Show(this);
@@ -331,7 +342,8 @@ public sealed class BridgePcListForm : Form
     private void EditTarget(int index)
     {
         var original = targets[index];
-        if (TryActivateTargetEdit(original))
+        var editorKey = GetTargetKey(original);
+        if (TryActivateTargetEdit(editorKey))
         {
             return;
         }
@@ -339,15 +351,15 @@ public sealed class BridgePcListForm : Form
         var dialog = new BridgePcEditForm(
             original,
             allowDelete: true,
-            descriptionFormProvider: () => GetOpenTargetDescription(original),
-            descriptionFormOpened: form => RegisterTargetDescription(original, form));
-        targetEditForms[original] = dialog;
+            descriptionFormProvider: () => GetOpenTargetDescription(editorKey),
+            descriptionFormOpened: form => RegisterTargetDescription(editorKey, form));
+        targetEditForms[editorKey] = dialog;
         dialog.FormClosed += (_, _) =>
         {
-            if (targetEditForms.TryGetValue(original, out var registered)
+            if (targetEditForms.TryGetValue(editorKey, out var registered)
                 && ReferenceEquals(registered, dialog))
             {
-                targetEditForms.Remove(original);
+                targetEditForms.Remove(editorKey);
             }
 
             if (dialog.DialogResult != DialogResult.OK)
@@ -355,7 +367,7 @@ public sealed class BridgePcListForm : Form
                 return;
             }
 
-            var currentIndex = targets.IndexOf(original);
+            var currentIndex = FindTargetIndex(editorKey);
             if (currentIndex < 0)
             {
                 ShowTargetChangedWarning();
@@ -381,12 +393,12 @@ public sealed class BridgePcListForm : Form
         dialog.Show(this);
     }
 
-    private bool TryActivateTargetEdit(BridgeTarget target)
+    private bool TryActivateTargetEdit(string editorKey)
     {
-        if (!targetEditForms.TryGetValue(target, out var form)
+        if (!targetEditForms.TryGetValue(editorKey, out var form)
             || form.IsDisposed)
         {
-            targetEditForms.Remove(target);
+            targetEditForms.Remove(editorKey);
             return false;
         }
 
@@ -394,9 +406,9 @@ public sealed class BridgePcListForm : Form
         return true;
     }
 
-    private bool TryActivateTargetDescription(BridgeTarget target)
+    private bool TryActivateTargetDescription(string editorKey)
     {
-        if (GetOpenTargetDescription(target) is not { } form)
+        if (GetOpenTargetDescription(editorKey) is not { } form)
         {
             return false;
         }
@@ -405,12 +417,12 @@ public sealed class BridgePcListForm : Form
         return true;
     }
 
-    private BridgePcDescriptionForm? GetOpenTargetDescription(BridgeTarget target)
+    private BridgePcDescriptionForm? GetOpenTargetDescription(string editorKey)
     {
-        if (!targetDescriptionForms.TryGetValue(target, out var form)
+        if (!targetDescriptionForms.TryGetValue(editorKey, out var form)
             || form.IsDisposed)
         {
-            targetDescriptionForms.Remove(target);
+            targetDescriptionForms.Remove(editorKey);
             return null;
         }
 
@@ -418,36 +430,38 @@ public sealed class BridgePcListForm : Form
     }
 
     private void RegisterTargetDescription(
-        BridgeTarget target,
+        string editorKey,
         BridgePcDescriptionForm form)
     {
-        targetDescriptionForms[target] = form;
+        targetDescriptionForms[editorKey] = form;
         form.FormClosed += (_, _) =>
         {
-            if (targetDescriptionForms.TryGetValue(target, out var registered)
+            if (targetDescriptionForms.TryGetValue(editorKey, out var registered)
                 && ReferenceEquals(registered, form))
             {
-                targetDescriptionForms.Remove(target);
+                targetDescriptionForms.Remove(editorKey);
             }
         };
     }
 
-    private bool CanCompleteDirectDescription(BridgeTarget target)
+    private int FindTargetIndex(string editorKey)
     {
-        if (!targetEditForms.TryGetValue(target, out var editForm)
-            || editForm.IsDisposed)
+        for (var index = 0; index < targets.Count; index++)
         {
-            targetEditForms.Remove(target);
-            return true;
+            if (GetTargetKey(targets[index]).Equals(
+                    editorKey,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
         }
 
-        MessageBox.Show(
-            "원격 PC 수정 창이 열려 있어 부가설명을 완료할 수 없습니다.\n수정 창에서 완료 또는 취소를 먼저 눌러 주세요.",
-            "원격 PC 설명",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Warning);
-        RestoreAndActivate(editForm);
-        return false;
+        return -1;
+    }
+
+    private static string GetTargetKey(BridgeTarget target)
+    {
+        return $"{target.Name}|{target.Host}|{target.ApiPort}|{target.RdpPort}";
     }
 
     private static void RestoreAndActivate(Form form)
