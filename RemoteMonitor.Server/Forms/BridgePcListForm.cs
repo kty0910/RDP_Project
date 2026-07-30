@@ -11,6 +11,9 @@ public sealed class BridgePcListForm : Form
     private readonly FileLogger logger;
     private readonly BindingList<BridgeTarget> targets;
     private readonly DataGridView grid = new();
+    private readonly Dictionary<BridgeTarget, Form> targetEditorForms =
+        new(ReferenceEqualityComparer.Instance);
+    private BridgePcEditForm? addTargetForm;
 
     public BridgePcListForm(FileLogger logger)
     {
@@ -91,9 +94,9 @@ public sealed class BridgePcListForm : Form
             Width = 92,
             Height = 36,
             Margin = new Padding(3),
-            TextAlign = ContentAlignment.MiddleCenter,
-            DialogResult = DialogResult.OK
+            TextAlign = ContentAlignment.MiddleCenter
         };
+        closeButton.Click += (_, _) => Close();
         closePanel.Controls.Add(closeButton);
         AcceptButton = closeButton;
 
@@ -227,20 +230,36 @@ public sealed class BridgePcListForm : Form
 
     private void AddTarget()
     {
-        using var dialog = new BridgePcEditForm(new BridgeTarget(), allowDelete: false);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        if (addTargetForm is { IsDisposed: false })
         {
+            RestoreAndActivate(addTargetForm);
             return;
         }
 
-        if (ContainsDuplicate(dialog.Target, -1))
+        var dialog = new BridgePcEditForm(new BridgeTarget(), allowDelete: false);
+        addTargetForm = dialog;
+        dialog.FormClosed += (_, _) =>
         {
-            ShowDuplicateWarning();
-            return;
-        }
+            if (ReferenceEquals(addTargetForm, dialog))
+            {
+                addTargetForm = null;
+            }
 
-        targets.Add(dialog.Target);
-        SaveTargets();
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            if (ContainsDuplicate(dialog.Target, -1))
+            {
+                ShowDuplicateWarning();
+                return;
+            }
+
+            targets.Add(dialog.Target);
+            SaveTargets();
+        };
+        dialog.Show(this);
     }
 
     private void EditTargetOrder()
@@ -266,53 +285,132 @@ public sealed class BridgePcListForm : Form
     private void EditTargetDescription(int index)
     {
         var original = targets[index];
-        using var dialog = new BridgePcDescriptionForm(
-            original.Name,
-            original.DescriptionSummary,
-            original.DescriptionDetails,
-            original.DescriptionDetailsRtf);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        if (TryActivateTargetEditor(original))
         {
             return;
         }
 
-        targets[index] = new BridgeTarget
+        var dialog = new BridgePcDescriptionForm(
+            original.Name,
+            original.DescriptionSummary,
+            original.DescriptionDetails,
+            original.DescriptionDetailsRtf);
+        targetEditorForms[original] = dialog;
+        dialog.FormClosed += (_, _) =>
         {
-            Name = original.Name,
-            Host = original.Host,
-            DescriptionSummary = dialog.DescriptionSummary,
-            DescriptionDetails = dialog.DescriptionDetails,
-            DescriptionDetailsRtf = dialog.DescriptionDetailsRtf,
-            ApiPort = original.ApiPort,
-            RdpPort = original.RdpPort
+            RemoveTargetEditor(original, dialog);
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            var currentIndex = targets.IndexOf(original);
+            if (currentIndex < 0)
+            {
+                ShowTargetChangedWarning();
+                return;
+            }
+
+            targets[currentIndex] = new BridgeTarget
+            {
+                Name = original.Name,
+                Host = original.Host,
+                DescriptionSummary = dialog.DescriptionSummary,
+                DescriptionDetails = dialog.DescriptionDetails,
+                DescriptionDetailsRtf = dialog.DescriptionDetailsRtf,
+                ApiPort = original.ApiPort,
+                RdpPort = original.RdpPort
+            };
+            SaveTargets();
         };
-        SaveTargets();
+        dialog.Show(this);
     }
 
     private void EditTarget(int index)
     {
         var original = targets[index];
-        using var dialog = new BridgePcEditForm(original, allowDelete: true);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        if (TryActivateTargetEditor(original))
         {
             return;
         }
 
-        if (dialog.IsDeleteRequested)
+        var dialog = new BridgePcEditForm(original, allowDelete: true);
+        targetEditorForms[original] = dialog;
+        dialog.FormClosed += (_, _) =>
         {
-            targets.RemoveAt(index);
+            RemoveTargetEditor(original, dialog);
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            var currentIndex = targets.IndexOf(original);
+            if (currentIndex < 0)
+            {
+                ShowTargetChangedWarning();
+                return;
+            }
+
+            if (dialog.IsDeleteRequested)
+            {
+                targets.RemoveAt(currentIndex);
+                SaveTargets();
+                return;
+            }
+
+            if (ContainsDuplicate(dialog.Target, currentIndex))
+            {
+                ShowDuplicateWarning();
+                return;
+            }
+
+            targets[currentIndex] = dialog.Target;
             SaveTargets();
-            return;
-        }
+        };
+        dialog.Show(this);
+    }
 
-        if (ContainsDuplicate(dialog.Target, index))
+    private bool TryActivateTargetEditor(BridgeTarget target)
+    {
+        if (!targetEditorForms.TryGetValue(target, out var form)
+            || form.IsDisposed)
         {
-            ShowDuplicateWarning();
-            return;
+            targetEditorForms.Remove(target);
+            return false;
         }
 
-        targets[index] = dialog.Target;
-        SaveTargets();
+        RestoreAndActivate(form);
+        return true;
+    }
+
+    private void RemoveTargetEditor(BridgeTarget target, Form form)
+    {
+        if (targetEditorForms.TryGetValue(target, out var registered)
+            && ReferenceEquals(registered, form))
+        {
+            targetEditorForms.Remove(target);
+        }
+    }
+
+    private static void RestoreAndActivate(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
+    }
+
+    private static void ShowTargetChangedWarning()
+    {
+        MessageBox.Show(
+            "창이 열린 동안 원격 PC 목록이 변경되어 내용을 적용할 수 없습니다.\n목록에서 PC를 다시 선택해 주세요.",
+            "원격 PC 정보 변경",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 
     private bool ContainsDuplicate(BridgeTarget candidate, int excludedIndex)

@@ -29,6 +29,7 @@ public sealed class MainForm : Form
     private readonly Button bridgeToggleButton = new();
     private readonly NumericUpDown statusPortInput = new();
     private readonly Button statusPortApplyButton = new();
+    private BridgePcListForm? bridgePcListForm;
     private ServerOptions currentOptions;
     private int apiPort;
 
@@ -616,9 +617,36 @@ private bool isMonitoring;
 
     private void ShowBridgePcList()
     {
-        using var dialog = new BridgePcListForm(logger);
-        dialog.ShowDialog(this);
-        UpdateBridgeStatusUi();
+        if (bridgePcListForm is { IsDisposed: false })
+        {
+            RestoreAndActivate(bridgePcListForm);
+            return;
+        }
+
+        var dialog = new BridgePcListForm(logger);
+        bridgePcListForm = dialog;
+        dialog.FormClosed += (_, _) =>
+        {
+            if (ReferenceEquals(bridgePcListForm, dialog))
+            {
+                bridgePcListForm = null;
+            }
+
+            UpdateBridgeStatusUi();
+        };
+        dialog.Show(this);
+    }
+
+    private static void RestoreAndActivate(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
     }
 
     private void UpdateBridgeStatusUi(BridgeStatus? bridgeStatus = null)

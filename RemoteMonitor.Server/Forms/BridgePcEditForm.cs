@@ -13,6 +13,7 @@ public sealed class BridgePcEditForm : Form
     private bool deleteRequested;
     private string descriptionDetails = string.Empty;
     private string descriptionDetailsRtf = string.Empty;
+    private BridgePcDescriptionForm? descriptionForm;
 
     public BridgePcEditForm(BridgeTarget target, bool allowDelete)
     {
@@ -115,20 +116,36 @@ public sealed class BridgePcEditForm : Form
 
     private void OpenDescriptionEditor()
     {
-        using var dialog = new BridgePcDescriptionForm(
+        if (descriptionForm is { IsDisposed: false })
+        {
+            RestoreAndActivate(descriptionForm);
+            return;
+        }
+
+        var dialog = new BridgePcDescriptionForm(
             nameTextBox.Text,
             descriptionSummaryTextBox.Text,
             descriptionDetails,
             descriptionDetailsRtf);
+        descriptionForm = dialog;
 
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        dialog.FormClosed += (_, _) =>
         {
-            return;
-        }
+            if (ReferenceEquals(descriptionForm, dialog))
+            {
+                descriptionForm = null;
+            }
 
-        descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
-        descriptionDetails = dialog.DescriptionDetails;
-        descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
+            descriptionDetails = dialog.DescriptionDetails;
+            descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
+        };
+        dialog.Show(this);
     }
 
     private Control CreateButtons()
@@ -144,7 +161,11 @@ public sealed class BridgePcEditForm : Form
         saveButton.Click += (_, _) => Save();
 
         var cancelButton = CreateButton("취소");
-        cancelButton.DialogResult = DialogResult.Cancel;
+        cancelButton.Click += (_, _) =>
+        {
+            DialogResult = DialogResult.Cancel;
+            Close();
+        };
 
         panel.Controls.Add(saveButton);
         panel.Controls.Add(cancelButton);
@@ -163,6 +184,17 @@ public sealed class BridgePcEditForm : Form
 
     private void Save()
     {
+        if (descriptionForm is { IsDisposed: false })
+        {
+            MessageBox.Show(
+                "부가설명 수정이 아직 완료되지 않았습니다.\n부가설명 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+                Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            RestoreAndActivate(descriptionForm);
+            return;
+        }
+
         var name = nameTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -189,6 +221,18 @@ public sealed class BridgePcEditForm : Form
         };
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private static void RestoreAndActivate(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
     }
 
     private void Delete()

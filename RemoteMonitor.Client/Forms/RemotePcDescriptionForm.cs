@@ -87,10 +87,18 @@ public sealed class RemotePcDescriptionForm : Form
         };
 
         var saveButton = CreateDialogButton("완료");
-        saveButton.DialogResult = DialogResult.OK;
+        saveButton.Click += (_, _) =>
+        {
+            DialogResult = DialogResult.OK;
+            Close();
+        };
 
         var cancelButton = CreateDialogButton("취소");
-        cancelButton.DialogResult = DialogResult.Cancel;
+        cancelButton.Click += (_, _) =>
+        {
+            DialogResult = DialogResult.Cancel;
+            Close();
+        };
 
         AcceptButton = saveButton;
         CancelButton = cancelButton;

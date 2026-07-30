@@ -138,6 +138,9 @@ public sealed class MainForm : Form
 
     private readonly NotifyIcon trayIcon;
     private readonly bool startInTray;
+    private RemotePcEditForm? addRemotePcForm;
+    private readonly Dictionary<string, Form> remotePcEditorForms =
+        new(StringComparer.OrdinalIgnoreCase);
 
 
 
@@ -2497,9 +2500,6 @@ private bool isTrayStatusChecking;
 
 
         BindGrid();
-
-
-
     }
 
 
@@ -4426,95 +4426,49 @@ private bool isTrayStatusChecking;
     }
 
     private void AddRemotePcWithDialog()
-
-
-
     {
-
-
+        if (addRemotePcForm is { IsDisposed: false })
+        {
+            RestoreAndActivate(addRemotePcForm);
+            return;
+        }
 
         var remotePc = new RemotePcInfo
-
-
-
         {
-
-
-
             Port = DefaultApiPort,
-
-
-
             RdpPort = DefaultRdpPort,
-
-
-
             BridgeApiPort = DefaultApiPort
-
-
-
         };
-
-
-
-
-
-
-
-        using var dialog = new RemotePcEditForm(remotePc, allowDelete: false);
-
-
-
-
-
-
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-
-
-
+        var dialog = new RemotePcEditForm(remotePc, allowDelete: false);
+        addRemotePcForm = dialog;
+        dialog.FormClosed += (_, _) =>
         {
+            if (ReferenceEquals(addRemotePcForm, dialog))
+            {
+                addRemotePcForm = null;
+            }
 
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
 
+            if (remotePcs.Any(existing => IsSameRemotePc(existing, dialog.RemotePc)))
+            {
+                MessageBox.Show(
+                    "이미 같은 원격 PC 정보가 등록되어 있습니다.",
+                    "원격 PC 정보 추가",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
 
-            return;
-
-
-
-        }
-
-
-
-
-
-
-
-        if (remotePcs.Any(remotePc => IsSameRemotePc(remotePc, dialog.RemotePc)))
-        {
-            MessageBox.Show(
-                "이미 같은 원격 PC 정보가 등록되어 있습니다.",
-                "원격 PC 정보 추가",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return;
-        }
-
-        remotePcs.Add(dialog.RemotePc);
-
-
-
-        pcListService.Save(remotePcs);
-
-
-
-        rowStates[GetRemotePcKey(dialog.RemotePc)] = RemotePcRow.Pending(dialog.RemotePc);
-
-
-
-        BindGrid();
-
-
-
+            remotePcs.Add(dialog.RemotePc);
+            pcListService.Save(remotePcs);
+            rowStates[GetRemotePcKey(dialog.RemotePc)] = RemotePcRow.Pending(dialog.RemotePc);
+            BindGrid();
+        };
+        dialog.Show(this);
     }
 
 
@@ -4884,27 +4838,88 @@ private bool isTrayStatusChecking;
             return;
         }
 
-        using var dialog = new RemotePcDescriptionForm(
-            original.Name,
-            original.DescriptionSummary,
-            original.DescriptionDetails,
-            original.DescriptionDetailsRtf);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        var editorKey = GetRemotePcKey(original);
+        if (TryActivateRemotePcEditor(editorKey))
         {
             return;
         }
 
-        var updated = CopyWithDescription(
-            original,
-            dialog.DescriptionSummary,
-            dialog.DescriptionDetails,
-            dialog.DescriptionDetailsRtf);
-        var index = remotePcs.IndexOf(original);
-        remotePcs[index] = updated;
-        pcListService.Save(remotePcs);
+        var dialog = new RemotePcDescriptionForm(
+            original.Name,
+            original.DescriptionSummary,
+            original.DescriptionDetails,
+            original.DescriptionDetailsRtf);
+        remotePcEditorForms[editorKey] = dialog;
+        dialog.FormClosed += (_, _) =>
+        {
+            RemoveRemotePcEditor(editorKey, dialog);
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
 
-        row.UpdateRemotePc(updated);
-        BindGrid();
+            var index = remotePcs.IndexOf(original);
+            if (index < 0)
+            {
+                ShowRemotePcChangedWarning();
+                return;
+            }
+
+            var updated = CopyWithDescription(
+                original,
+                dialog.DescriptionSummary,
+                dialog.DescriptionDetails,
+                dialog.DescriptionDetailsRtf);
+            remotePcs[index] = updated;
+            pcListService.Save(remotePcs);
+
+            row.UpdateRemotePc(updated);
+            BindGrid();
+        };
+        dialog.Show(this);
+    }
+
+    private bool TryActivateRemotePcEditor(string editorKey)
+    {
+        if (!remotePcEditorForms.TryGetValue(editorKey, out var form)
+            || form.IsDisposed)
+        {
+            remotePcEditorForms.Remove(editorKey);
+            return false;
+        }
+
+        RestoreAndActivate(form);
+        return true;
+    }
+
+    private void RemoveRemotePcEditor(string editorKey, Form form)
+    {
+        if (remotePcEditorForms.TryGetValue(editorKey, out var registered)
+            && ReferenceEquals(registered, form))
+        {
+            remotePcEditorForms.Remove(editorKey);
+        }
+    }
+
+    private static void RestoreAndActivate(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
+    }
+
+    private static void ShowRemotePcChangedWarning()
+    {
+        MessageBox.Show(
+            "창이 열린 동안 원격 PC 목록이 변경되어 내용을 적용할 수 없습니다.\n목록에서 PC를 다시 선택해 주세요.",
+            "원격 PC 정보 변경",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 
     private static RemotePcInfo CopyWithDescription(
@@ -5007,35 +5022,30 @@ private bool isTrayStatusChecking;
 
 
 
-        using var dialog = new RemotePcEditForm(original);
-
-
-
-
-
-
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-
-
-
+        var editorKey = GetRemotePcKey(original);
+        if (TryActivateRemotePcEditor(editorKey))
         {
-
-
-
             return;
-
-
-
         }
 
+        var dialog = new RemotePcEditForm(original);
+        remotePcEditorForms[editorKey] = dialog;
+        dialog.FormClosed += (_, _) =>
+        {
+            RemoveRemotePcEditor(editorKey, dialog);
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
 
+            var currentIndex = remotePcs.IndexOf(original);
+            if (currentIndex < 0)
+            {
+                ShowRemotePcChangedWarning();
+                return;
+            }
 
-
-
-
-
-        var oldKey = GetRemotePcKey(original);
+            var oldKey = GetRemotePcKey(original);
 
 
 
@@ -5151,17 +5161,10 @@ private bool isTrayStatusChecking;
 
 
 
-        BindGrid();
-
-
-
+            BindGrid();
+        };
+        dialog.Show(this);
     }
-
-
-
-
-
-
 
     private async void PcGridCellContentClick(object? sender, DataGridViewCellEventArgs e)
 
