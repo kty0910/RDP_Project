@@ -2802,6 +2802,7 @@ private bool isTrayStatusChecking;
         {
             if (rowStates.TryGetValue(GetRemotePcKey(remotePc), out var row))
             {
+                row.UpdateRemotePc(remotePc);
                 orderedRows.Add(row);
             }
         }
@@ -3332,7 +3333,7 @@ private bool isTrayStatusChecking;
 
             var centerX = buttonBounds.Left + (buttonBounds.Width / 2);
             var centerY = buttonBounds.Top + (buttonBounds.Height / 2);
-            using var plusPen = new Pen(Color.FromArgb(43, 99, 199), 2F);
+            using var plusPen = new Pen(Color.Black, 2F);
             e.Graphics.DrawLine(plusPen, centerX - 6, centerY, centerX + 6, centerY);
             e.Graphics.DrawLine(plusPen, centerX, centerY - 6, centerX, centerY + 6);
 
