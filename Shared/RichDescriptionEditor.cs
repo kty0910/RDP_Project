@@ -58,9 +58,13 @@ internal sealed class RichDescriptionEditor : UserControl
         private const int WmUser = 0x0400;
         private const int EmSetLanguageOptions = WmUser + 120;
         private const int EmGetLanguageOptions = WmUser + 121;
+        private const int EmSetOptions = WmUser + 77;
+        private const int EmGetOptions = WmUser + 78;
         private const int ImfAutoFont = 0x0002;
         private const int ImfAutoFontSizeAdjust = 0x0010;
         private const int ImfDualFont = 0x0080;
+        private const int EcoOperationSet = 0x0001;
+        private const int EcoAutoWordSelection = 0x0001;
 
         protected override void OnHandleCreated(EventArgs eventArgs)
         {
@@ -77,6 +81,18 @@ internal sealed class RichDescriptionEditor : UserControl
                 EmSetLanguageOptions,
                 IntPtr.Zero,
                 new IntPtr(options));
+
+            var richEditOptions = SendMessage(
+                Handle,
+                EmGetOptions,
+                IntPtr.Zero,
+                IntPtr.Zero).ToInt32();
+            richEditOptions &= ~EcoAutoWordSelection;
+            SendMessage(
+                Handle,
+                EmSetOptions,
+                new IntPtr(EcoOperationSet),
+                new IntPtr(richEditOptions));
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
