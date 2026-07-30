@@ -4841,6 +4841,19 @@ private bool isTrayStatusChecking;
         }
 
         var editorKey = GetRemotePcKey(original);
+        if (remotePcEditForms.TryGetValue(editorKey, out var openEditForm)
+            && !openEditForm.IsDisposed)
+        {
+            MessageBox.Show(
+                "원격 PC 수정 창이 열려 있습니다.\n수정 창의 상세 버튼을 눌러 부가설명을 열어 주세요.",
+                "원격 PC 설명",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            RestoreAndActivate(openEditForm);
+            return;
+        }
+
+        remotePcEditForms.Remove(editorKey);
         if (TryActivateRemotePcDescription(editorKey))
         {
             return;
