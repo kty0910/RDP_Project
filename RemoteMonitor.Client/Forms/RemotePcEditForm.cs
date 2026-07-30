@@ -199,10 +199,14 @@ public sealed class RemotePcEditForm : Form
             return;
         }
 
-        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } sharedForm)
+        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } openDescriptionForm)
         {
-            AttachDescriptionForm(sharedForm);
-            RestoreAndActivate(sharedForm);
+            MessageBox.Show(
+                "메인 화면에서 연 부가설명 창이 이미 열려 있습니다.\n부가설명 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+                allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            RestoreAndActivate(openDescriptionForm);
             return;
         }
 
@@ -471,6 +475,18 @@ public sealed class RemotePcEditForm : Form
                 MessageBoxIcon.Warning);
             DialogResult = DialogResult.None;
             RestoreAndActivate(descriptionForm);
+            return;
+        }
+
+        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } openDescriptionForm)
+        {
+            MessageBox.Show(
+                "메인 화면에서 연 부가설명 창이 아직 열려 있습니다.\n부가설명 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+                allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            DialogResult = DialogResult.None;
+            RestoreAndActivate(openDescriptionForm);
             return;
         }
 
