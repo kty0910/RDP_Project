@@ -1,36 +1,33 @@
+using RemoteMonitor.Shared.Forms;
+
 namespace RemoteMonitor.Server.Forms;
 
 public sealed class BridgePcDescriptionForm : Form
 {
     private const int SummaryMaxLength = 100;
-    private const int DetailsMaxLength = 4000;
-
     private readonly TextBox summaryTextBox = new();
-    private readonly TextBox detailsTextBox = new();
+    private readonly RichDescriptionEditor detailsEditor;
 
     public string DescriptionSummary => summaryTextBox.Text.Trim();
 
-    public string DescriptionDetails => detailsTextBox.Text.Trim();
+    public string DescriptionDetails => detailsEditor.PlainText;
 
-    public BridgePcDescriptionForm(string remotePcName, string summary, string details)
+    public string DescriptionDetailsRtf => detailsEditor.RtfText;
+
+    public BridgePcDescriptionForm(string remotePcName, string summary, string details, string detailsRtf)
     {
         Text = "원격 PC 설명";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(600, 430);
+        ClientSize = new Size(760, 540);
 
         summaryTextBox.Text = summary ?? string.Empty;
         summaryTextBox.MaxLength = SummaryMaxLength;
         summaryTextBox.Dock = DockStyle.Fill;
 
-        detailsTextBox.Text = details ?? string.Empty;
-        detailsTextBox.MaxLength = DetailsMaxLength;
-        detailsTextBox.Dock = DockStyle.Fill;
-        detailsTextBox.Multiline = true;
-        detailsTextBox.AcceptsReturn = true;
-        detailsTextBox.ScrollBars = ScrollBars.Vertical;
+        detailsEditor = new RichDescriptionEditor(details, detailsRtf);
 
         Controls.Add(CreateLayout(remotePcName));
     }
@@ -65,7 +62,7 @@ public sealed class BridgePcDescriptionForm : Form
         layout.Controls.Add(CreateLabel("요약 (목록에 표시되는 한 줄 설명)"), 0, 1);
         layout.Controls.Add(summaryTextBox, 0, 2);
         layout.Controls.Add(CreateLabel("상세 설명"), 0, 3);
-        layout.Controls.Add(detailsTextBox, 0, 4);
+        layout.Controls.Add(detailsEditor, 0, 4);
         layout.Controls.Add(CreateButtons(), 0, 5);
         return layout;
     }

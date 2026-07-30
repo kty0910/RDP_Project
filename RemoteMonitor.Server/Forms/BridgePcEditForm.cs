@@ -12,6 +12,7 @@ public sealed class BridgePcEditForm : Form
     private readonly TextBox descriptionSummaryTextBox = new();
     private bool deleteRequested;
     private string descriptionDetails = string.Empty;
+    private string descriptionDetailsRtf = string.Empty;
 
     public BridgePcEditForm(BridgeTarget target, bool allowDelete)
     {
@@ -41,6 +42,7 @@ public sealed class BridgePcEditForm : Form
         descriptionSummaryTextBox.MaxLength = 100;
         descriptionSummaryTextBox.Dock = DockStyle.Fill;
         descriptionDetails = target.DescriptionDetails;
+        descriptionDetailsRtf = target.DescriptionDetailsRtf;
 
         Controls.Add(CreateLayout());
     }
@@ -116,7 +118,8 @@ public sealed class BridgePcEditForm : Form
         using var dialog = new BridgePcDescriptionForm(
             nameTextBox.Text,
             descriptionSummaryTextBox.Text,
-            descriptionDetails);
+            descriptionDetails,
+            descriptionDetailsRtf);
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
@@ -125,6 +128,7 @@ public sealed class BridgePcEditForm : Form
 
         descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
         descriptionDetails = dialog.DescriptionDetails;
+        descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
     }
 
     private Control CreateButtons()
@@ -179,6 +183,7 @@ public sealed class BridgePcEditForm : Form
             Host = host,
             DescriptionSummary = descriptionSummaryTextBox.Text.Trim(),
             DescriptionDetails = descriptionDetails,
+            DescriptionDetailsRtf = descriptionDetailsRtf,
             ApiPort = (int)statusPortInput.Value,
             RdpPort = (int)rdpPortInput.Value
         };

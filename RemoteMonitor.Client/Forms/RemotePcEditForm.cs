@@ -29,6 +29,7 @@ public sealed class RemotePcEditForm : Form
 #endif
 
     private string descriptionDetails = string.Empty;
+    private string descriptionDetailsRtf = string.Empty;
 
     public RemotePcInfo RemotePc { get; private set; }
 
@@ -60,6 +61,7 @@ public sealed class RemotePcEditForm : Form
         passwordTextBox.Text = remotePc.Password;
         descriptionSummaryTextBox.Text = remotePc.DescriptionSummary;
         descriptionDetails = remotePc.DescriptionDetails;
+        descriptionDetailsRtf = remotePc.DescriptionDetailsRtf;
         useBridgeCheckBox.Checked = remotePc.UseBridge;
         bridgeHostTextBox.Text = remotePc.BridgeHost;
         bridgeApiPortInput.Minimum = 1;
@@ -185,7 +187,8 @@ public sealed class RemotePcEditForm : Form
         using var dialog = new RemotePcDescriptionForm(
             string.IsNullOrWhiteSpace(nameTextBox.Text) ? original.Name : nameTextBox.Text,
             descriptionSummaryTextBox.Text,
-            descriptionDetails);
+            descriptionDetails,
+            descriptionDetailsRtf);
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
@@ -194,6 +197,7 @@ public sealed class RemotePcEditForm : Form
 
         descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
         descriptionDetails = dialog.DescriptionDetails;
+        descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
     }
 
     private Control CreateStatusPortPanel()
@@ -467,6 +471,7 @@ public sealed class RemotePcEditForm : Form
             Password = passwordTextBox.Text,
             DescriptionSummary = descriptionSummaryTextBox.Text.Trim(),
             DescriptionDetails = descriptionDetails,
+            DescriptionDetailsRtf = descriptionDetailsRtf,
             Port = (int)statusPortInput.Value,
             RdpPort = parsedRdpPort,
             UseBridge = useBridgeCheckBox.Checked,

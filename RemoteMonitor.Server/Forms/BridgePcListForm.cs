@@ -269,7 +269,8 @@ public sealed class BridgePcListForm : Form
         using var dialog = new BridgePcDescriptionForm(
             original.Name,
             original.DescriptionSummary,
-            original.DescriptionDetails);
+            original.DescriptionDetails,
+            original.DescriptionDetailsRtf);
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -281,6 +282,7 @@ public sealed class BridgePcListForm : Form
             Host = original.Host,
             DescriptionSummary = dialog.DescriptionSummary,
             DescriptionDetails = dialog.DescriptionDetails,
+            DescriptionDetailsRtf = dialog.DescriptionDetailsRtf,
             ApiPort = original.ApiPort,
             RdpPort = original.RdpPort
         };
