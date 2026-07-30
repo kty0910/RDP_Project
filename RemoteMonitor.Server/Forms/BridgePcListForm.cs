@@ -11,6 +11,11 @@ public sealed class BridgePcListForm : Form
     private readonly FileLogger logger;
     private readonly BindingList<BridgeTarget> targets;
     private readonly DataGridView grid = new();
+    private readonly Dictionary<string, BridgePcEditForm> targetEditForms =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, BridgePcDescriptionForm> targetDescriptionForms =
+        new(StringComparer.OrdinalIgnoreCase);
+    private BridgePcEditForm? addTargetForm;
 
     public BridgePcListForm(FileLogger logger)
     {
@@ -91,9 +96,9 @@ public sealed class BridgePcListForm : Form
             Width = 92,
             Height = 36,
             Margin = new Padding(3),
-            TextAlign = ContentAlignment.MiddleCenter,
-            DialogResult = DialogResult.OK
+            TextAlign = ContentAlignment.MiddleCenter
         };
+        closeButton.Click += (_, _) => Close();
         closePanel.Controls.Add(closeButton);
         AcceptButton = closeButton;
 
@@ -227,20 +232,36 @@ public sealed class BridgePcListForm : Form
 
     private void AddTarget()
     {
-        using var dialog = new BridgePcEditForm(new BridgeTarget(), allowDelete: false);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        if (addTargetForm is { IsDisposed: false })
         {
+            RestoreAndActivate(addTargetForm);
             return;
         }
 
-        if (ContainsDuplicate(dialog.Target, -1))
+        var dialog = new BridgePcEditForm(new BridgeTarget(), allowDelete: false);
+        addTargetForm = dialog;
+        dialog.FormClosed += (_, _) =>
         {
-            ShowDuplicateWarning();
-            return;
-        }
+            if (ReferenceEquals(addTargetForm, dialog))
+            {
+                addTargetForm = null;
+            }
 
-        targets.Add(dialog.Target);
-        SaveTargets();
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            if (ContainsDuplicate(dialog.Target, -1))
+            {
+                ShowDuplicateWarning();
+                return;
+            }
+
+            targets.Add(dialog.Target);
+            SaveTargets();
+        };
+        dialog.Show(this);
     }
 
     private void EditTargetOrder()
@@ -266,53 +287,216 @@ public sealed class BridgePcListForm : Form
     private void EditTargetDescription(int index)
     {
         var original = targets[index];
-        using var dialog = new BridgePcDescriptionForm(
-            original.Name,
-            original.DescriptionSummary,
-            original.DescriptionDetails,
-            original.DescriptionDetailsRtf);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        var editorKey = GetTargetKey(original);
+        if (targetEditForms.TryGetValue(editorKey, out var openEditForm)
+            && !openEditForm.IsDisposed)
+        {
+            MessageBox.Show(
+                "원격 PC 수정 창이 열려 있습니다.\n수정 창의 상세 버튼을 눌러 부가설명을 열어 주세요.",
+                "원격 PC 설명",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            RestoreAndActivate(openEditForm);
+            return;
+        }
+
+        targetEditForms.Remove(editorKey);
+        if (TryActivateTargetDescription(editorKey))
         {
             return;
         }
 
-        targets[index] = new BridgeTarget
+        var dialog = new BridgePcDescriptionForm(
+            original.Name,
+            original.DescriptionSummary,
+            original.DescriptionDetails,
+            original.DescriptionDetailsRtf);
+        RegisterTargetDescription(editorKey, dialog);
+        dialog.FormClosed += (_, _) =>
         {
-            Name = original.Name,
-            Host = original.Host,
-            DescriptionSummary = dialog.DescriptionSummary,
-            DescriptionDetails = dialog.DescriptionDetails,
-            DescriptionDetailsRtf = dialog.DescriptionDetailsRtf,
-            ApiPort = original.ApiPort,
-            RdpPort = original.RdpPort
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            if (targetEditForms.TryGetValue(editorKey, out var editForm)
+                && !editForm.IsDisposed)
+            {
+                editForm.UpdateDescriptionDraft(
+                    dialog.DescriptionSummary,
+                    dialog.DescriptionDetails,
+                    dialog.DescriptionDetailsRtf);
+                return;
+            }
+
+            var currentIndex = FindTargetIndex(editorKey);
+            if (currentIndex < 0)
+            {
+                ShowTargetChangedWarning();
+                return;
+            }
+
+            var updated = new BridgeTarget
+            {
+                Name = original.Name,
+                Host = original.Host,
+                DescriptionSummary = dialog.DescriptionSummary,
+                DescriptionDetails = dialog.DescriptionDetails,
+                DescriptionDetailsRtf = dialog.DescriptionDetailsRtf,
+                ApiPort = original.ApiPort,
+                RdpPort = original.RdpPort
+            };
+            targets[currentIndex] = updated;
+
+            SaveTargets();
         };
-        SaveTargets();
+        dialog.Show(this);
     }
 
     private void EditTarget(int index)
     {
         var original = targets[index];
-        using var dialog = new BridgePcEditForm(original, allowDelete: true);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        var editorKey = GetTargetKey(original);
+        if (TryActivateTargetEdit(editorKey))
         {
             return;
         }
 
-        if (dialog.IsDeleteRequested)
+        var dialog = new BridgePcEditForm(
+            original,
+            allowDelete: true,
+            descriptionFormProvider: () => GetOpenTargetDescription(editorKey),
+            descriptionFormOpened: form => RegisterTargetDescription(editorKey, form));
+        targetEditForms[editorKey] = dialog;
+        dialog.FormClosed += (_, _) =>
         {
-            targets.RemoveAt(index);
+            if (targetEditForms.TryGetValue(editorKey, out var registered)
+                && ReferenceEquals(registered, dialog))
+            {
+                targetEditForms.Remove(editorKey);
+            }
+
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            var currentIndex = FindTargetIndex(editorKey);
+            if (currentIndex < 0)
+            {
+                ShowTargetChangedWarning();
+                return;
+            }
+
+            if (dialog.IsDeleteRequested)
+            {
+                targets.RemoveAt(currentIndex);
+                SaveTargets();
+                return;
+            }
+
+            if (ContainsDuplicate(dialog.Target, currentIndex))
+            {
+                ShowDuplicateWarning();
+                return;
+            }
+
+            targets[currentIndex] = dialog.Target;
             SaveTargets();
-            return;
-        }
+        };
+        dialog.Show(this);
+    }
 
-        if (ContainsDuplicate(dialog.Target, index))
+    private bool TryActivateTargetEdit(string editorKey)
+    {
+        if (!targetEditForms.TryGetValue(editorKey, out var form)
+            || form.IsDisposed)
         {
-            ShowDuplicateWarning();
-            return;
+            targetEditForms.Remove(editorKey);
+            return false;
         }
 
-        targets[index] = dialog.Target;
-        SaveTargets();
+        RestoreAndActivate(form);
+        return true;
+    }
+
+    private bool TryActivateTargetDescription(string editorKey)
+    {
+        if (GetOpenTargetDescription(editorKey) is not { } form)
+        {
+            return false;
+        }
+
+        RestoreAndActivate(form);
+        return true;
+    }
+
+    private BridgePcDescriptionForm? GetOpenTargetDescription(string editorKey)
+    {
+        if (!targetDescriptionForms.TryGetValue(editorKey, out var form)
+            || form.IsDisposed)
+        {
+            targetDescriptionForms.Remove(editorKey);
+            return null;
+        }
+
+        return form;
+    }
+
+    private void RegisterTargetDescription(
+        string editorKey,
+        BridgePcDescriptionForm form)
+    {
+        targetDescriptionForms[editorKey] = form;
+        form.FormClosed += (_, _) =>
+        {
+            if (targetDescriptionForms.TryGetValue(editorKey, out var registered)
+                && ReferenceEquals(registered, form))
+            {
+                targetDescriptionForms.Remove(editorKey);
+            }
+        };
+    }
+
+    private int FindTargetIndex(string editorKey)
+    {
+        for (var index = 0; index < targets.Count; index++)
+        {
+            if (GetTargetKey(targets[index]).Equals(
+                    editorKey,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static string GetTargetKey(BridgeTarget target)
+    {
+        return $"{target.Name}|{target.Host}|{target.ApiPort}|{target.RdpPort}";
+    }
+
+    private static void RestoreAndActivate(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
+    }
+
+    private static void ShowTargetChangedWarning()
+    {
+        MessageBox.Show(
+            "창이 열린 동안 원격 PC 목록이 변경되어 내용을 적용할 수 없습니다.\n목록에서 PC를 다시 선택해 주세요.",
+            "원격 PC 정보 변경",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 
     private bool ContainsDuplicate(BridgeTarget candidate, int excludedIndex)

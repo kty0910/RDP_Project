@@ -6,6 +6,8 @@ public sealed class RemotePcEditForm : Form
 {
     private readonly RemotePcInfo original;
     private readonly bool allowDelete;
+    private readonly Func<RemotePcDescriptionForm?>? descriptionFormProvider;
+    private readonly Action<RemotePcDescriptionForm>? descriptionFormOpened;
     private readonly PersistentPlaceholderTextBox nameTextBox = new();
     private readonly PersistentPlaceholderTextBox hostTextBox = new();
     private readonly NumericUpDown statusPortInput = new();
@@ -30,15 +32,29 @@ public sealed class RemotePcEditForm : Form
 
     private string descriptionDetails = string.Empty;
     private string descriptionDetailsRtf = string.Empty;
+    private RemotePcDescriptionForm? descriptionForm;
 
     public RemotePcInfo RemotePc { get; private set; }
 
     public bool IsDeleteRequested => deleteRequested;
 
-    public RemotePcEditForm(RemotePcInfo remotePc, bool allowDelete = true)
+    public void UpdateDescriptionDraft(string summary, string details, string detailsRtf)
+    {
+        descriptionSummaryTextBox.Text = summary ?? string.Empty;
+        descriptionDetails = details ?? string.Empty;
+        descriptionDetailsRtf = detailsRtf ?? string.Empty;
+    }
+
+    public RemotePcEditForm(
+        RemotePcInfo remotePc,
+        bool allowDelete = true,
+        Func<RemotePcDescriptionForm?>? descriptionFormProvider = null,
+        Action<RemotePcDescriptionForm>? descriptionFormOpened = null)
     {
         original = remotePc;
         this.allowDelete = allowDelete;
+        this.descriptionFormProvider = descriptionFormProvider;
+        this.descriptionFormOpened = descriptionFormOpened;
         RemotePc = remotePc;
 
         Text = allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가";
@@ -184,20 +200,53 @@ public sealed class RemotePcEditForm : Form
 
     private void OpenDescriptionEditor()
     {
-        using var dialog = new RemotePcDescriptionForm(
+        if (descriptionForm is { IsDisposed: false })
+        {
+            RestoreAndActivate(descriptionForm);
+            return;
+        }
+
+        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } openDescriptionForm)
+        {
+            RestoreAndActivate(openDescriptionForm);
+            return;
+        }
+
+        var dialog = new RemotePcDescriptionForm(
             string.IsNullOrWhiteSpace(nameTextBox.Text) ? original.Name : nameTextBox.Text,
             descriptionSummaryTextBox.Text,
             descriptionDetails,
             descriptionDetailsRtf);
+        AttachDescriptionForm(dialog);
+        descriptionFormOpened?.Invoke(dialog);
+        dialog.Show(this);
+    }
 
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+    private void AttachDescriptionForm(RemotePcDescriptionForm dialog)
+    {
+        descriptionForm = dialog;
+
+        dialog.FormClosed += (_, _) =>
         {
-            return;
-        }
+            if (ReferenceEquals(descriptionForm, dialog))
+            {
+                descriptionForm = null;
+            }
 
-        descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
-        descriptionDetails = dialog.DescriptionDetails;
-        descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            if (dialog.DialogResult != DialogResult.OK)
+            {
+                return;
+            }
+
+            descriptionSummaryTextBox.Text = dialog.DescriptionSummary;
+            descriptionDetails = dialog.DescriptionDetails;
+            descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
+        };
     }
 
     private Control CreateStatusPortPanel()
@@ -281,11 +330,14 @@ public sealed class RemotePcEditForm : Form
         };
 
         var saveButton = CreateDialogButton("완료");
-        saveButton.DialogResult = DialogResult.OK;
         saveButton.Click += (_, _) => Save();
 
         var cancelButton = CreateDialogButton("취소");
-        cancelButton.DialogResult = DialogResult.Cancel;
+        cancelButton.Click += (_, _) =>
+        {
+            DialogResult = DialogResult.Cancel;
+            Close();
+        };
 
         var deleteButton = CreateDialogButton("삭제");
         deleteButton.Click += (_, _) => Delete();
@@ -416,6 +468,30 @@ public sealed class RemotePcEditForm : Form
 
     private void Save()
     {
+        if (descriptionForm is { IsDisposed: false })
+        {
+            MessageBox.Show(
+                "부가설명 수정이 아직 완료되지 않았습니다.\n부가설명 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+                allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            DialogResult = DialogResult.None;
+            RestoreAndActivate(descriptionForm);
+            return;
+        }
+
+        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } openDescriptionForm)
+        {
+            MessageBox.Show(
+                "메인 화면에서 연 부가설명 창이 아직 열려 있습니다.\n부가설명 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+                allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            DialogResult = DialogResult.None;
+            RestoreAndActivate(openDescriptionForm);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(nameTextBox.Text)
             || string.IsNullOrWhiteSpace(hostTextBox.Text)
             || string.IsNullOrWhiteSpace(userIdTextBox.Text)
@@ -483,6 +559,20 @@ public sealed class RemotePcEditForm : Form
             BridgeToken = string.Empty
 #endif
         };
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    private static void RestoreAndActivate(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
     }
 
     private void Delete()
