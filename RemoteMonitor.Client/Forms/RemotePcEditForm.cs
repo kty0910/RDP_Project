@@ -6,6 +6,8 @@ public sealed class RemotePcEditForm : Form
 {
     private readonly RemotePcInfo original;
     private readonly bool allowDelete;
+    private readonly Func<RemotePcDescriptionForm?>? descriptionFormProvider;
+    private readonly Action<RemotePcDescriptionForm>? descriptionFormOpened;
     private readonly PersistentPlaceholderTextBox nameTextBox = new();
     private readonly PersistentPlaceholderTextBox hostTextBox = new();
     private readonly NumericUpDown statusPortInput = new();
@@ -36,10 +38,16 @@ public sealed class RemotePcEditForm : Form
 
     public bool IsDeleteRequested => deleteRequested;
 
-    public RemotePcEditForm(RemotePcInfo remotePc, bool allowDelete = true)
+    public RemotePcEditForm(
+        RemotePcInfo remotePc,
+        bool allowDelete = true,
+        Func<RemotePcDescriptionForm?>? descriptionFormProvider = null,
+        Action<RemotePcDescriptionForm>? descriptionFormOpened = null)
     {
         original = remotePc;
         this.allowDelete = allowDelete;
+        this.descriptionFormProvider = descriptionFormProvider;
+        this.descriptionFormOpened = descriptionFormOpened;
         RemotePc = remotePc;
 
         Text = allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가";
@@ -191,11 +199,25 @@ public sealed class RemotePcEditForm : Form
             return;
         }
 
+        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } sharedForm)
+        {
+            AttachDescriptionForm(sharedForm);
+            RestoreAndActivate(sharedForm);
+            return;
+        }
+
         var dialog = new RemotePcDescriptionForm(
             string.IsNullOrWhiteSpace(nameTextBox.Text) ? original.Name : nameTextBox.Text,
             descriptionSummaryTextBox.Text,
             descriptionDetails,
             descriptionDetailsRtf);
+        AttachDescriptionForm(dialog);
+        descriptionFormOpened?.Invoke(dialog);
+        dialog.Show(this);
+    }
+
+    private void AttachDescriptionForm(RemotePcDescriptionForm dialog)
+    {
         descriptionForm = dialog;
 
         dialog.FormClosed += (_, _) =>
@@ -203,6 +225,11 @@ public sealed class RemotePcEditForm : Form
             if (ReferenceEquals(descriptionForm, dialog))
             {
                 descriptionForm = null;
+            }
+
+            if (IsDisposed || Disposing)
+            {
+                return;
             }
 
             if (dialog.DialogResult != DialogResult.OK)
@@ -214,7 +241,6 @@ public sealed class RemotePcEditForm : Form
             descriptionDetails = dialog.DescriptionDetails;
             descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
         };
-        dialog.Show(this);
     }
 
     private Control CreateStatusPortPanel()

@@ -11,7 +11,9 @@ public sealed class BridgePcListForm : Form
     private readonly FileLogger logger;
     private readonly BindingList<BridgeTarget> targets;
     private readonly DataGridView grid = new();
-    private readonly Dictionary<BridgeTarget, Form> targetEditorForms =
+    private readonly Dictionary<BridgeTarget, BridgePcEditForm> targetEditForms =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<BridgeTarget, BridgePcDescriptionForm> targetDescriptionForms =
         new(ReferenceEqualityComparer.Instance);
     private BridgePcEditForm? addTargetForm;
 
@@ -285,7 +287,7 @@ public sealed class BridgePcListForm : Form
     private void EditTargetDescription(int index)
     {
         var original = targets[index];
-        if (TryActivateTargetEditor(original))
+        if (TryActivateTargetDescription(original))
         {
             return;
         }
@@ -295,10 +297,10 @@ public sealed class BridgePcListForm : Form
             original.DescriptionSummary,
             original.DescriptionDetails,
             original.DescriptionDetailsRtf);
-        targetEditorForms[original] = dialog;
+        dialog.CompletionValidator = () => CanCompleteDirectDescription(original);
+        RegisterTargetDescription(original, dialog);
         dialog.FormClosed += (_, _) =>
         {
-            RemoveTargetEditor(original, dialog);
             if (dialog.DialogResult != DialogResult.OK)
             {
                 return;
@@ -329,16 +331,25 @@ public sealed class BridgePcListForm : Form
     private void EditTarget(int index)
     {
         var original = targets[index];
-        if (TryActivateTargetEditor(original))
+        if (TryActivateTargetEdit(original))
         {
             return;
         }
 
-        var dialog = new BridgePcEditForm(original, allowDelete: true);
-        targetEditorForms[original] = dialog;
+        var dialog = new BridgePcEditForm(
+            original,
+            allowDelete: true,
+            descriptionFormProvider: () => GetOpenTargetDescription(original),
+            descriptionFormOpened: form => RegisterTargetDescription(original, form));
+        targetEditForms[original] = dialog;
         dialog.FormClosed += (_, _) =>
         {
-            RemoveTargetEditor(original, dialog);
+            if (targetEditForms.TryGetValue(original, out var registered)
+                && ReferenceEquals(registered, dialog))
+            {
+                targetEditForms.Remove(original);
+            }
+
             if (dialog.DialogResult != DialogResult.OK)
             {
                 return;
@@ -370,12 +381,12 @@ public sealed class BridgePcListForm : Form
         dialog.Show(this);
     }
 
-    private bool TryActivateTargetEditor(BridgeTarget target)
+    private bool TryActivateTargetEdit(BridgeTarget target)
     {
-        if (!targetEditorForms.TryGetValue(target, out var form)
+        if (!targetEditForms.TryGetValue(target, out var form)
             || form.IsDisposed)
         {
-            targetEditorForms.Remove(target);
+            targetEditForms.Remove(target);
             return false;
         }
 
@@ -383,13 +394,60 @@ public sealed class BridgePcListForm : Form
         return true;
     }
 
-    private void RemoveTargetEditor(BridgeTarget target, Form form)
+    private bool TryActivateTargetDescription(BridgeTarget target)
     {
-        if (targetEditorForms.TryGetValue(target, out var registered)
-            && ReferenceEquals(registered, form))
+        if (GetOpenTargetDescription(target) is not { } form)
         {
-            targetEditorForms.Remove(target);
+            return false;
         }
+
+        RestoreAndActivate(form);
+        return true;
+    }
+
+    private BridgePcDescriptionForm? GetOpenTargetDescription(BridgeTarget target)
+    {
+        if (!targetDescriptionForms.TryGetValue(target, out var form)
+            || form.IsDisposed)
+        {
+            targetDescriptionForms.Remove(target);
+            return null;
+        }
+
+        return form;
+    }
+
+    private void RegisterTargetDescription(
+        BridgeTarget target,
+        BridgePcDescriptionForm form)
+    {
+        targetDescriptionForms[target] = form;
+        form.FormClosed += (_, _) =>
+        {
+            if (targetDescriptionForms.TryGetValue(target, out var registered)
+                && ReferenceEquals(registered, form))
+            {
+                targetDescriptionForms.Remove(target);
+            }
+        };
+    }
+
+    private bool CanCompleteDirectDescription(BridgeTarget target)
+    {
+        if (!targetEditForms.TryGetValue(target, out var editForm)
+            || editForm.IsDisposed)
+        {
+            targetEditForms.Remove(target);
+            return true;
+        }
+
+        MessageBox.Show(
+            "원격 PC 수정 창이 열려 있어 부가설명을 완료할 수 없습니다.\n수정 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+            "원격 PC 설명",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+        RestoreAndActivate(editForm);
+        return false;
     }
 
     private static void RestoreAndActivate(Form form)

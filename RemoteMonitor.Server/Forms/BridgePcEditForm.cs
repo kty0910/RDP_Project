@@ -5,6 +5,8 @@ namespace RemoteMonitor.Server.Forms;
 public sealed class BridgePcEditForm : Form
 {
     private readonly bool allowDelete;
+    private readonly Func<BridgePcDescriptionForm?>? descriptionFormProvider;
+    private readonly Action<BridgePcDescriptionForm>? descriptionFormOpened;
     private readonly TextBox nameTextBox = new();
     private readonly TextBox hostTextBox = new();
     private readonly NumericUpDown statusPortInput = new();
@@ -15,9 +17,15 @@ public sealed class BridgePcEditForm : Form
     private string descriptionDetailsRtf = string.Empty;
     private BridgePcDescriptionForm? descriptionForm;
 
-    public BridgePcEditForm(BridgeTarget target, bool allowDelete)
+    public BridgePcEditForm(
+        BridgeTarget target,
+        bool allowDelete,
+        Func<BridgePcDescriptionForm?>? descriptionFormProvider = null,
+        Action<BridgePcDescriptionForm>? descriptionFormOpened = null)
     {
         this.allowDelete = allowDelete;
+        this.descriptionFormProvider = descriptionFormProvider;
+        this.descriptionFormOpened = descriptionFormOpened;
         Target = target;
 
         Text = allowDelete ? "원격 PC 수정" : "원격 PC 추가";
@@ -122,11 +130,25 @@ public sealed class BridgePcEditForm : Form
             return;
         }
 
+        if (descriptionFormProvider?.Invoke() is { IsDisposed: false } sharedForm)
+        {
+            AttachDescriptionForm(sharedForm);
+            RestoreAndActivate(sharedForm);
+            return;
+        }
+
         var dialog = new BridgePcDescriptionForm(
             nameTextBox.Text,
             descriptionSummaryTextBox.Text,
             descriptionDetails,
             descriptionDetailsRtf);
+        AttachDescriptionForm(dialog);
+        descriptionFormOpened?.Invoke(dialog);
+        dialog.Show(this);
+    }
+
+    private void AttachDescriptionForm(BridgePcDescriptionForm dialog)
+    {
         descriptionForm = dialog;
 
         dialog.FormClosed += (_, _) =>
@@ -134,6 +156,11 @@ public sealed class BridgePcEditForm : Form
             if (ReferenceEquals(descriptionForm, dialog))
             {
                 descriptionForm = null;
+            }
+
+            if (IsDisposed || Disposing)
+            {
+                return;
             }
 
             if (dialog.DialogResult != DialogResult.OK)
@@ -145,7 +172,6 @@ public sealed class BridgePcEditForm : Form
             descriptionDetails = dialog.DescriptionDetails;
             descriptionDetailsRtf = dialog.DescriptionDetailsRtf;
         };
-        dialog.Show(this);
     }
 
     private Control CreateButtons()

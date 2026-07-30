@@ -14,6 +14,8 @@ public sealed class BridgePcDescriptionForm : Form
 
     public string DescriptionDetailsRtf => detailsEditor.RtfText;
 
+    public Func<bool>? CompletionValidator { get; set; }
+
     public BridgePcDescriptionForm(string remotePcName, string summary, string details, string detailsRtf)
     {
         Text = "원격 PC 설명";
@@ -89,6 +91,11 @@ public sealed class BridgePcDescriptionForm : Form
         var saveButton = CreateDialogButton("완료");
         saveButton.Click += (_, _) =>
         {
+            if (CompletionValidator is not null && !CompletionValidator())
+            {
+                return;
+            }
+
             DialogResult = DialogResult.OK;
             Close();
         };

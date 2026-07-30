@@ -139,7 +139,9 @@ public sealed class MainForm : Form
     private readonly NotifyIcon trayIcon;
     private readonly bool startInTray;
     private RemotePcEditForm? addRemotePcForm;
-    private readonly Dictionary<string, Form> remotePcEditorForms =
+    private readonly Dictionary<string, RemotePcEditForm> remotePcEditForms =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RemotePcDescriptionForm> remotePcDescriptionForms =
         new(StringComparer.OrdinalIgnoreCase);
 
 
@@ -4839,7 +4841,7 @@ private bool isTrayStatusChecking;
         }
 
         var editorKey = GetRemotePcKey(original);
-        if (TryActivateRemotePcEditor(editorKey))
+        if (TryActivateRemotePcDescription(editorKey))
         {
             return;
         }
@@ -4849,10 +4851,10 @@ private bool isTrayStatusChecking;
             original.DescriptionSummary,
             original.DescriptionDetails,
             original.DescriptionDetailsRtf);
-        remotePcEditorForms[editorKey] = dialog;
+        dialog.CompletionValidator = () => CanCompleteDirectDescription(editorKey);
+        RegisterRemotePcDescription(editorKey, dialog);
         dialog.FormClosed += (_, _) =>
         {
-            RemoveRemotePcEditor(editorKey, dialog);
             if (dialog.DialogResult != DialogResult.OK)
             {
                 return;
@@ -4879,12 +4881,12 @@ private bool isTrayStatusChecking;
         dialog.Show(this);
     }
 
-    private bool TryActivateRemotePcEditor(string editorKey)
+    private bool TryActivateRemotePcEdit(string editorKey)
     {
-        if (!remotePcEditorForms.TryGetValue(editorKey, out var form)
+        if (!remotePcEditForms.TryGetValue(editorKey, out var form)
             || form.IsDisposed)
         {
-            remotePcEditorForms.Remove(editorKey);
+            remotePcEditForms.Remove(editorKey);
             return false;
         }
 
@@ -4892,13 +4894,60 @@ private bool isTrayStatusChecking;
         return true;
     }
 
-    private void RemoveRemotePcEditor(string editorKey, Form form)
+    private bool TryActivateRemotePcDescription(string editorKey)
     {
-        if (remotePcEditorForms.TryGetValue(editorKey, out var registered)
-            && ReferenceEquals(registered, form))
+        if (GetOpenRemotePcDescription(editorKey) is not { } form)
         {
-            remotePcEditorForms.Remove(editorKey);
+            return false;
         }
+
+        RestoreAndActivate(form);
+        return true;
+    }
+
+    private RemotePcDescriptionForm? GetOpenRemotePcDescription(string editorKey)
+    {
+        if (!remotePcDescriptionForms.TryGetValue(editorKey, out var form)
+            || form.IsDisposed)
+        {
+            remotePcDescriptionForms.Remove(editorKey);
+            return null;
+        }
+
+        return form;
+    }
+
+    private void RegisterRemotePcDescription(
+        string editorKey,
+        RemotePcDescriptionForm form)
+    {
+        remotePcDescriptionForms[editorKey] = form;
+        form.FormClosed += (_, _) =>
+        {
+            if (remotePcDescriptionForms.TryGetValue(editorKey, out var registered)
+                && ReferenceEquals(registered, form))
+            {
+                remotePcDescriptionForms.Remove(editorKey);
+            }
+        };
+    }
+
+    private bool CanCompleteDirectDescription(string editorKey)
+    {
+        if (!remotePcEditForms.TryGetValue(editorKey, out var editForm)
+            || editForm.IsDisposed)
+        {
+            remotePcEditForms.Remove(editorKey);
+            return true;
+        }
+
+        MessageBox.Show(
+            "원격 PC 수정 창이 열려 있어 부가설명을 완료할 수 없습니다.\n수정 창에서 완료 또는 취소를 먼저 눌러 주세요.",
+            "원격 PC 설명",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+        RestoreAndActivate(editForm);
+        return false;
     }
 
     private static void RestoreAndActivate(Form form)
@@ -5023,16 +5072,24 @@ private bool isTrayStatusChecking;
 
 
         var editorKey = GetRemotePcKey(original);
-        if (TryActivateRemotePcEditor(editorKey))
+        if (TryActivateRemotePcEdit(editorKey))
         {
             return;
         }
 
-        var dialog = new RemotePcEditForm(original);
-        remotePcEditorForms[editorKey] = dialog;
+        var dialog = new RemotePcEditForm(
+            original,
+            descriptionFormProvider: () => GetOpenRemotePcDescription(editorKey),
+            descriptionFormOpened: form => RegisterRemotePcDescription(editorKey, form));
+        remotePcEditForms[editorKey] = dialog;
         dialog.FormClosed += (_, _) =>
         {
-            RemoveRemotePcEditor(editorKey, dialog);
+            if (remotePcEditForms.TryGetValue(editorKey, out var registered)
+                && ReferenceEquals(registered, dialog))
+            {
+                remotePcEditForms.Remove(editorKey);
+            }
+
             if (dialog.DialogResult != DialogResult.OK)
             {
                 return;
