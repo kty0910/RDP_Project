@@ -1723,6 +1723,7 @@ private bool isTrayStatusChecking;
 
 
                     ForeColor = GetTrayRemotePcColor(row),
+                    BackColor = GetTrayRemotePcBackColor(row),
 
 
 
@@ -1884,6 +1885,7 @@ private bool isTrayStatusChecking;
 
 
             item.ForeColor = GetTrayRemotePcColor(row);
+            item.BackColor = GetTrayRemotePcBackColor(row);
 
 
 
@@ -1979,6 +1981,12 @@ private bool isTrayStatusChecking;
 
 
 
+        if (row.Highlight == RowHighlight.Error)
+        {
+            var statusText = row.IsReachable ? "확인 불가" : "연결 불가";
+            return $"{displayName} ({remotePc.Host}) - {statusText}";
+        }
+
         return $"{displayName} ({remotePc.Host}) - {row.ConnectionText}";
 
 
@@ -2019,7 +2027,7 @@ private bool isTrayStatusChecking;
 
 
 
-        if (row.HasActiveSession)
+        if (row.Highlight is RowHighlight.Warning or RowHighlight.Error)
 
 
 
@@ -2027,7 +2035,7 @@ private bool isTrayStatusChecking;
 
 
 
-            return Color.Firebrick;
+            return SystemColors.ControlText;
 
 
 
@@ -2063,6 +2071,21 @@ private bool isTrayStatusChecking;
 
 
 
+    }
+
+    private static Color GetTrayRemotePcBackColor(RemotePcRow? row)
+    {
+        if (row is null || !row.IsMonitoring)
+        {
+            return SystemColors.Menu;
+        }
+
+        return row.Highlight switch
+        {
+            RowHighlight.Warning => WarningRowBackColor,
+            RowHighlight.Error => ErrorRowBackColor,
+            _ => SystemColors.Menu
+        };
     }
 
 
