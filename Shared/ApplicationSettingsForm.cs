@@ -205,6 +205,10 @@ internal sealed class ApplicationSettingsForm : Form
                 removeShortcut();
                 RefreshShortcutState();
             }
+            catch (OperationCanceledException)
+            {
+                // 관리자 권한 요청을 취소하면 기존 바로가기를 유지합니다.
+            }
             catch (Exception exception)
             {
                 MessageBox.Show(
@@ -282,12 +286,14 @@ internal sealed class ApplicationSettingsForm : Form
     {
         UpdateShortcutState(
             shortcutService.DesktopShortcutExists,
+            shortcutService.IsDesktopShortcutUserCreated,
             shortcutService.CanRemoveDesktopShortcut,
             desktopStatusLabel,
             desktopCreateButton,
             desktopDeleteButton);
         UpdateShortcutState(
             shortcutService.StartMenuShortcutExists,
+            shortcutService.IsStartMenuShortcutUserCreated,
             shortcutService.CanRemoveStartMenuShortcut,
             startMenuStatusLabel,
             startMenuCreateButton,
@@ -296,12 +302,13 @@ internal sealed class ApplicationSettingsForm : Form
 
     private static void UpdateShortcutState(
         bool exists,
+        bool userCreated,
         bool canRemove,
         Label statusLabel,
         Button createButton,
         Button deleteButton)
     {
-        statusLabel.Text = canRemove ? "생성됨" : exists ? "설치됨" : "미생성";
+        statusLabel.Text = userCreated ? "생성됨" : exists ? "설치됨" : "미생성";
         statusLabel.ForeColor = exists ? SuccessColor : Color.DimGray;
         createButton.Text = exists ? "생성됨" : "생성";
         createButton.Enabled = !exists;

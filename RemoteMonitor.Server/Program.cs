@@ -8,6 +8,15 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (Shared.WindowsShortcutService.TryHandleRemoveCommonShortcutCommand(
+                args,
+                "Remote Monitor Server",
+                out var shortcutExitCode))
+        {
+            Environment.ExitCode = shortcutExitCode;
+            return;
+        }
+
         if (Services.StartupRegistrationService.TryHandleConfigurationCommand(args, out var exitCode))
         {
             Environment.ExitCode = exitCode;

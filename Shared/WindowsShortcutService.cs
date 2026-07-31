@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using System.ComponentModel;
+using System.Diagnostics;
 
 namespace RemoteMonitor.Shared;
 
@@ -25,9 +27,13 @@ internal sealed class WindowsShortcutService
         File.Exists(GetUserStartMenuShortcutPath()) ||
         File.Exists(GetCommonStartMenuShortcutPath());
 
-    public bool CanRemoveDesktopShortcut => File.Exists(GetUserDesktopShortcutPath());
+    public bool IsDesktopShortcutUserCreated => File.Exists(GetUserDesktopShortcutPath());
 
-    public bool CanRemoveStartMenuShortcut => File.Exists(GetUserStartMenuShortcutPath());
+    public bool IsStartMenuShortcutUserCreated => File.Exists(GetUserStartMenuShortcutPath());
+
+    public bool CanRemoveDesktopShortcut => DesktopShortcutExists;
+
+    public bool CanRemoveStartMenuShortcut => StartMenuShortcutExists;
 
     public void CreateDesktopShortcut()
     {
@@ -42,14 +48,91 @@ internal sealed class WindowsShortcutService
     public void RemoveDesktopShortcut()
     {
         File.Delete(GetUserDesktopShortcutPath());
+        RemoveCommonShortcut(ShortcutLocation.Desktop);
     }
 
     public void RemoveStartMenuShortcut()
     {
         var shortcutPath = GetUserStartMenuShortcutPath();
         File.Delete(shortcutPath);
+        RemoveEmptyDirectory(Path.GetDirectoryName(shortcutPath));
+        RemoveCommonShortcut(ShortcutLocation.StartMenu);
+    }
 
-        var directory = Path.GetDirectoryName(shortcutPath);
+    public static bool TryHandleRemoveCommonShortcutCommand(
+        string[] args,
+        string shortcutName,
+        out int exitCode)
+    {
+        exitCode = 0;
+        if (args.Length != 2 ||
+            !string.Equals(args[0], "--remove-common-shortcut", StringComparison.OrdinalIgnoreCase) ||
+            !Enum.TryParse(args[1], true, out ShortcutLocation location))
+        {
+            return false;
+        }
+
+        try
+        {
+            var shortcutPath = GetCommonShortcutPath(shortcutName, location);
+            File.Delete(shortcutPath);
+            RemoveEmptyDirectory(Path.GetDirectoryName(shortcutPath));
+        }
+        catch
+        {
+            exitCode = 1;
+        }
+
+        return true;
+    }
+
+    private void RemoveCommonShortcut(ShortcutLocation location)
+    {
+        var shortcutPath = GetCommonShortcutPath(shortcutName, location);
+        if (!File.Exists(shortcutPath))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(shortcutPath);
+            RemoveEmptyDirectory(Path.GetDirectoryName(shortcutPath));
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Continue by launching the same application with administrator rights.
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = targetPath,
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
+        startInfo.ArgumentList.Add("--remove-common-shortcut");
+        startInfo.ArgumentList.Add(location.ToString());
+
+        try
+        {
+            using var process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("관리자 권한 삭제 프로세스를 시작하지 못했습니다.");
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException("공용 바로가기를 삭제하지 못했습니다.");
+            }
+        }
+        catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
+        {
+            throw new OperationCanceledException("관리자 권한 요청이 취소되었습니다.", exception);
+        }
+    }
+
+    private static void RemoveEmptyDirectory(string? directory)
+    {
         if (directory is not null &&
             Directory.Exists(directory) &&
             !Directory.EnumerateFileSystemEntries(directory).Any())
@@ -105,10 +188,28 @@ internal sealed class WindowsShortcutService
 
     private string GetCommonStartMenuShortcutPath()
     {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
-            "Remote Monitor",
-            $"{shortcutName}.lnk");
+        return GetCommonShortcutPath(shortcutName, ShortcutLocation.StartMenu);
+    }
+
+    private static string GetCommonShortcutPath(string name, ShortcutLocation location)
+    {
+        return location switch
+        {
+            ShortcutLocation.Desktop => Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+                $"{name}.lnk"),
+            ShortcutLocation.StartMenu => Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+                "Remote Monitor",
+                $"{name}.lnk"),
+            _ => throw new ArgumentOutOfRangeException(nameof(location))
+        };
+    }
+
+    private enum ShortcutLocation
+    {
+        Desktop,
+        StartMenu
     }
 
     [ComImport]
