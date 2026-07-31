@@ -54,7 +54,10 @@ internal sealed class WindowsShortcutService
     public void RemoveStartMenuShortcut()
     {
         var shortcutPath = GetUserStartMenuShortcutPath();
-        File.Delete(shortcutPath);
+        if (File.Exists(shortcutPath))
+        {
+            File.Delete(shortcutPath);
+        }
         RemoveEmptyDirectory(Path.GetDirectoryName(shortcutPath));
         RemoveCommonShortcut(ShortcutLocation.StartMenu);
     }
