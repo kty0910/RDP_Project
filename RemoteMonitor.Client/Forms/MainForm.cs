@@ -21,6 +21,7 @@ using RemoteMonitor.Client.Networking;
 
 
 using RemoteMonitor.Client.Services;
+using RemoteMonitor.Shared;
 
 
 
@@ -974,7 +975,7 @@ private bool isTrayStatusChecking;
 
 
 
-        headerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430));
+        headerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 470));
 
 
 
@@ -1036,9 +1037,19 @@ private bool isTrayStatusChecking;
             Margin = Padding.Empty
         };
 
+        var settingsButton = CreateSecondaryButton("⚙");
+        settingsButton.Dock = DockStyle.None;
+        settingsButton.Location = new Point(0, 8);
+        settingsButton.Width = 32;
+        settingsButton.Height = 32;
+        settingsButton.Font = new Font("Segoe UI Symbol", 13F, FontStyle.Regular);
+        settingsButton.TextAlign = ContentAlignment.MiddleCenter;
+        settingsButton.AccessibleName = "설정";
+        settingsButton.Click += (_, _) => ShowSettings();
+
         var editOrderButton = CreateSecondaryButton("목록 편집");
         editOrderButton.Dock = DockStyle.None;
-        editOrderButton.Location = new Point(0, 8);
+        editOrderButton.Location = new Point(40, 8);
         editOrderButton.Width = 104;
         editOrderButton.Height = 32;
         editOrderButton.TextAlign = ContentAlignment.MiddleCenter;
@@ -1046,7 +1057,7 @@ private bool isTrayStatusChecking;
 
         var leftCheckAllButton = CreateSecondaryButton("전체 체크 시작");
         leftCheckAllButton.Dock = DockStyle.None;
-        leftCheckAllButton.Location = new Point(112, 8);
+        leftCheckAllButton.Location = new Point(152, 8);
         leftCheckAllButton.Width = 154;
         leftCheckAllButton.Height = 32;
         leftCheckAllButton.TextAlign = ContentAlignment.MiddleCenter;
@@ -1054,12 +1065,13 @@ private bool isTrayStatusChecking;
 
         var checkAllButton = CreateSecondaryButton("전체 체크 종료");
         checkAllButton.Dock = DockStyle.None;
-        checkAllButton.Location = new Point(276, 8);
+        checkAllButton.Location = new Point(316, 8);
         checkAllButton.Width = 154;
         checkAllButton.Height = 32;
         checkAllButton.TextAlign = ContentAlignment.MiddleCenter;
         checkAllButton.Click += (_, _) => StopAllRemotePcs();
 
+        checkAllButtonPanel.Controls.Add(settingsButton);
         checkAllButtonPanel.Controls.Add(editOrderButton);
         checkAllButtonPanel.Controls.Add(leftCheckAllButton);
         checkAllButtonPanel.Controls.Add(checkAllButton);
@@ -1770,15 +1782,8 @@ private bool isTrayStatusChecking;
 
         trayMenu.Items.Add(new ToolStripSeparator());
 
-        var startupMenu = new ToolStripMenuItem("Windows 로그인 시 자동 실행")
-        {
-            Checked = StartupRegistrationService.IsEnabled(),
-            CheckOnClick = false
-        };
-        startupMenu.Click += (_, _) => ToggleStartupRegistration(startupMenu);
-        trayMenu.Items.Add(startupMenu);
-
         trayMenu.Items.Add("상세모드 열기", null, (_, _) => ShowDetailedMode());
+        trayMenu.Items.Add("설정...", null, (_, _) => ShowSettings());
 
 
 
@@ -2878,36 +2883,32 @@ private bool isTrayStatusChecking;
         }
     }
 
-    private void ToggleStartupRegistration(ToolStripMenuItem startupMenu)
+    private void ShowSettings()
     {
-        var enable = !StartupRegistrationService.IsEnabled();
+        using var settingsForm = new ApplicationSettingsForm(
+            new ApplicationSettingsOptions
+            {
+                ProgramName = "RDP Client",
+                Version = Application.ProductVersion,
+                InstallPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+                StartupDescription = "Windows 로그인 시 자동 실행",
+                IsStartupEnabled = StartupRegistrationService.IsEnabled,
+                SetStartupEnabledAsync = enabled =>
+                    Task.Run(() => StartupRegistrationService.SetEnabled(enabled)),
+                ShortcutName = "Remote Monitor Client",
+                ExecutablePath = Application.ExecutablePath
+            })
+        {
+            Icon = Icon
+        };
 
-        try
+        if (Visible)
         {
-            StartupRegistrationService.SetEnabled(enable);
-            startupMenu.Checked = StartupRegistrationService.IsEnabled();
+            settingsForm.ShowDialog(this);
+            return;
+        }
 
-            trayIcon.ShowBalloonTip(
-                2500,
-                "RDP Client",
-                enable
-                    ? "Windows 로그인 시 자동 실행을 설정했습니다."
-                    : "Windows 로그인 시 자동 실행을 해제했습니다.",
-                ToolTipIcon.Info);
-        }
-        catch (OperationCanceledException)
-        {
-            startupMenu.Checked = StartupRegistrationService.IsEnabled();
-        }
-        catch (Exception exception)
-        {
-            startupMenu.Checked = StartupRegistrationService.IsEnabled();
-            MessageBox.Show(
-                $"자동 실행 설정을 변경하지 못했습니다.{Environment.NewLine}{exception.Message}",
-                "RDP Client",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
+        settingsForm.ShowDialog();
     }
 
     private static Color GetRowBackColor(RemotePcRow row)

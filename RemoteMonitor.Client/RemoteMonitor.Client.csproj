@@ -19,7 +19,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\Assets\client-r.ico" LogicalName="RemoteMonitor.Client.AppIconR" />
+    <Compile Include="..\Shared\ApplicationSettingsForm.cs" Link="Forms\ApplicationSettingsForm.cs" />
     <Compile Include="..\Shared\RichDescriptionEditor.cs" Link="Forms\RichDescriptionEditor.cs" />
+    <Compile Include="..\Shared\WindowsShortcutService.cs" Link="Services\WindowsShortcutService.cs" />
   </ItemGroup>
 
 </Project>

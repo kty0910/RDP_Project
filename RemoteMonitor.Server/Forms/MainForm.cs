@@ -7,6 +7,7 @@ using RemoteMonitor.Server.Logging;
 using RemoteMonitor.Server.Models;
 using RemoteMonitor.Server.Networking;
 using RemoteMonitor.Server.Services;
+using RemoteMonitor.Shared;
 
 namespace RemoteMonitor.Server.Forms;
 
@@ -435,14 +436,7 @@ private bool isMonitoring;
         menu.Items.Add("Refresh Status", null, async (_, _) => await RefreshStatusAsync());
 
         menu.Items.Add(new ToolStripSeparator());
-        var startupMenu = new ToolStripMenuItem("Windows 부팅 시 자동 실행")
-        {
-            Checked = startupRegistrationService.IsRegistered(),
-            CheckOnClick = false
-        };
-        startupMenu.Click += async (_, _) => await ToggleStartupRegistrationAsync(startupMenu);
-        menu.Items.Add(startupMenu);
-        menu.Opening += (_, _) => startupMenu.Checked = startupRegistrationService.IsRegistered();
+        menu.Items.Add("설정...", null, (_, _) => ShowSettings());
 
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitFromTray());
@@ -463,41 +457,31 @@ private bool isMonitoring;
         return icon;
     }
 
-    private async Task ToggleStartupRegistrationAsync(ToolStripMenuItem startupMenu)
+    private void ShowSettings()
     {
-        var enable = !startupRegistrationService.IsRegistered();
-        startupMenu.Enabled = false;
+        using var settingsForm = new ApplicationSettingsForm(
+            new ApplicationSettingsOptions
+            {
+                ProgramName = "RDP Server",
+                Version = Application.ProductVersion,
+                InstallPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+                StartupDescription = "Windows 부팅 시 자동 실행",
+                IsStartupEnabled = startupRegistrationService.IsRegistered,
+                SetStartupEnabledAsync = startupRegistrationService.SetRegisteredAsync,
+                ShortcutName = "Remote Monitor Server",
+                ExecutablePath = Application.ExecutablePath
+            })
+        {
+            Icon = Icon
+        };
 
-        try
+        if (Visible)
         {
-            await startupRegistrationService.SetRegisteredAsync(enable);
-            startupMenu.Checked = startupRegistrationService.IsRegistered();
+            settingsForm.ShowDialog(this);
+            return;
+        }
 
-            trayIcon.ShowBalloonTip(
-                2500,
-                "RDP Server",
-                enable
-                    ? "Windows 부팅 시 Server 자동 실행을 설정했습니다."
-                    : "Windows 부팅 시 Server 자동 실행을 해제했습니다.",
-                ToolTipIcon.Info);
-        }
-        catch (OperationCanceledException)
-        {
-            startupMenu.Checked = startupRegistrationService.IsRegistered();
-        }
-        catch (Exception exception)
-        {
-            startupMenu.Checked = startupRegistrationService.IsRegistered();
-            MessageBox.Show(
-                $"자동 실행 설정을 변경하지 못했습니다.{Environment.NewLine}{exception.Message}",
-                "RDP Server",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
-        finally
-        {
-            startupMenu.Enabled = true;
-        }
+        settingsForm.ShowDialog();
     }
 
     private void ShowFromTray()
