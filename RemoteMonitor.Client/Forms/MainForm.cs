@@ -1037,14 +1037,14 @@ private bool isTrayStatusChecking;
             Margin = Padding.Empty
         };
 
-        var settingsButton = CreateSecondaryButton("⚙");
+        var settingsButton = CreateSecondaryButton(string.Empty);
         settingsButton.Dock = DockStyle.None;
         settingsButton.Location = new Point(0, 8);
         settingsButton.Width = 32;
         settingsButton.Height = 32;
-        settingsButton.Font = new Font("Segoe UI Symbol", 13F, FontStyle.Regular);
-        settingsButton.TextAlign = ContentAlignment.MiddleCenter;
         settingsButton.AccessibleName = "설정";
+        settingsButton.Paint += (_, eventArgs) =>
+            DrawSettingsGear(eventArgs.Graphics, settingsButton.ClientRectangle, settingsButton.Enabled);
         settingsButton.Click += (_, _) => ShowSettings();
 
         var editOrderButton = CreateSecondaryButton("목록 편집");
@@ -1783,7 +1783,7 @@ private bool isTrayStatusChecking;
         trayMenu.Items.Add(new ToolStripSeparator());
 
         trayMenu.Items.Add("상세모드 열기", null, (_, _) => ShowDetailedMode());
-        trayMenu.Items.Add("설정...", null, (_, _) => ShowSettings());
+        trayMenu.Items.Add("설정", null, (_, _) => ShowSettings());
 
 
 
@@ -2889,7 +2889,7 @@ private bool isTrayStatusChecking;
             new ApplicationSettingsOptions
             {
                 ProgramName = "RDP Client",
-                Version = Application.ProductVersion,
+                Version = $"v{typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.1.1"}",
                 InstallPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
                 StartupDescription = "Windows 로그인 시 자동 실행",
                 IsStartupEnabled = StartupRegistrationService.IsEnabled,
@@ -2909,6 +2909,50 @@ private bool isTrayStatusChecking;
         }
 
         settingsForm.ShowDialog();
+    }
+
+    private static void DrawSettingsGear(Graphics graphics, Rectangle bounds, bool enabled)
+    {
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        var center = new PointF(
+            bounds.Left + (bounds.Width / 2F),
+            bounds.Top + (bounds.Height / 2F));
+        const int toothCount = 8;
+        const float outerRadius = 10F;
+        const float rootRadius = 7.3F;
+        var step = (float)(Math.PI * 2 / toothCount);
+        var points = new List<PointF>(toothCount * 4);
+
+        for (var tooth = 0; tooth < toothCount; tooth++)
+        {
+            var angle = (float)(-Math.PI / 2) + (tooth * step);
+            points.Add(CreatePolarPoint(center, rootRadius, angle - (step * 0.45F)));
+            points.Add(CreatePolarPoint(center, outerRadius, angle - (step * 0.25F)));
+            points.Add(CreatePolarPoint(center, outerRadius, angle + (step * 0.25F)));
+            points.Add(CreatePolarPoint(center, rootRadius, angle + (step * 0.45F)));
+        }
+
+        using var gearPath = new System.Drawing.Drawing2D.GraphicsPath();
+        gearPath.AddPolygon(points.ToArray());
+        using var gearBrush = new SolidBrush(enabled ? Color.FromArgb(85, 85, 85) : SystemColors.GrayText);
+        graphics.FillPath(gearBrush, gearPath);
+
+        const float holeRadius = 3.25F;
+        using var holeBrush = new SolidBrush(Color.White);
+        graphics.FillEllipse(
+            holeBrush,
+            center.X - holeRadius,
+            center.Y - holeRadius,
+            holeRadius * 2,
+            holeRadius * 2);
+    }
+
+    private static PointF CreatePolarPoint(PointF center, float radius, float angle)
+    {
+        return new PointF(
+            center.X + (radius * MathF.Cos(angle)),
+            center.Y + (radius * MathF.Sin(angle)));
     }
 
     private static Color GetRowBackColor(RemotePcRow row)

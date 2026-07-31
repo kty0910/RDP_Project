@@ -436,7 +436,7 @@ private bool isMonitoring;
         menu.Items.Add("Refresh Status", null, async (_, _) => await RefreshStatusAsync());
 
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("설정...", null, (_, _) => ShowSettings());
+        menu.Items.Add("설정", null, (_, _) => ShowSettings());
 
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitFromTray());
@@ -463,7 +463,7 @@ private bool isMonitoring;
             new ApplicationSettingsOptions
             {
                 ProgramName = "RDP Server",
-                Version = Application.ProductVersion,
+                Version = $"v{typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.1.1"}",
                 InstallPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
                 StartupDescription = "Windows 부팅 시 자동 실행",
                 IsStartupEnabled = startupRegistrationService.IsRegistered,

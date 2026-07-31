@@ -25,6 +25,10 @@ internal sealed class WindowsShortcutService
         File.Exists(GetUserStartMenuShortcutPath()) ||
         File.Exists(GetCommonStartMenuShortcutPath());
 
+    public bool CanRemoveDesktopShortcut => File.Exists(GetUserDesktopShortcutPath());
+
+    public bool CanRemoveStartMenuShortcut => File.Exists(GetUserStartMenuShortcutPath());
+
     public void CreateDesktopShortcut()
     {
         CreateShortcut(GetUserDesktopShortcutPath());
@@ -33,6 +37,25 @@ internal sealed class WindowsShortcutService
     public void CreateStartMenuShortcut()
     {
         CreateShortcut(GetUserStartMenuShortcutPath());
+    }
+
+    public void RemoveDesktopShortcut()
+    {
+        File.Delete(GetUserDesktopShortcutPath());
+    }
+
+    public void RemoveStartMenuShortcut()
+    {
+        var shortcutPath = GetUserStartMenuShortcutPath();
+        File.Delete(shortcutPath);
+
+        var directory = Path.GetDirectoryName(shortcutPath);
+        if (directory is not null &&
+            Directory.Exists(directory) &&
+            !Directory.EnumerateFileSystemEntries(directory).Any())
+        {
+            Directory.Delete(directory);
+        }
     }
 
     private void CreateShortcut(string shortcutPath)

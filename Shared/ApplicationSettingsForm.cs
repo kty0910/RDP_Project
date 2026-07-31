@@ -26,6 +26,8 @@ internal sealed class ApplicationSettingsForm : Form
     private readonly Label startMenuStatusLabel = new();
     private readonly Button desktopCreateButton = new();
     private readonly Button startMenuCreateButton = new();
+    private readonly Button desktopDeleteButton = new();
+    private readonly Button startMenuDeleteButton = new();
 
     public ApplicationSettingsForm(ApplicationSettingsOptions options)
     {
@@ -117,7 +119,9 @@ internal sealed class ApplicationSettingsForm : Form
             "바탕화면 바로가기",
             desktopStatusLabel,
             desktopCreateButton,
-            () => shortcutService.CreateDesktopShortcut());
+            desktopDeleteButton,
+            shortcutService.CreateDesktopShortcut,
+            shortcutService.RemoveDesktopShortcut);
 
         AddShortcutRow(
             page,
@@ -125,7 +129,9 @@ internal sealed class ApplicationSettingsForm : Form
             "시작메뉴 바로가기",
             startMenuStatusLabel,
             startMenuCreateButton,
-            () => shortcutService.CreateStartMenuShortcut());
+            startMenuDeleteButton,
+            shortcutService.CreateStartMenuShortcut,
+            shortcutService.RemoveStartMenuShortcut);
 
         var warningLabel = new Label
         {
@@ -133,7 +139,7 @@ internal sealed class ApplicationSettingsForm : Form
             Location = new Point(24, 186),
             Size = new Size(466, 48),
             ForeColor = WarningColor,
-            Text = "※ 이미 생성된 바로가기는 다시 만들지 않으므로 중복 생성되지 않습니다.",
+            Text = "※ 설정에서 만든 바로가기는 삭제할 수 있으며 중복 생성되지 않습니다.",
             TextAlign = ContentAlignment.MiddleLeft
         };
         page.Controls.Add(warningLabel);
@@ -174,7 +180,9 @@ internal sealed class ApplicationSettingsForm : Form
         string labelText,
         Label statusLabel,
         Button createButton,
-        Action createShortcut)
+        Button deleteButton,
+        Action createShortcut,
+        Action removeShortcut)
     {
         var label = new Label
         {
@@ -184,11 +192,30 @@ internal sealed class ApplicationSettingsForm : Form
             TextAlign = ContentAlignment.MiddleLeft
         };
 
-        statusLabel.Location = new Point(215, top + 8);
-        statusLabel.Size = new Size(100, 28);
+        statusLabel.Location = new Point(195, top + 8);
+        statusLabel.Size = new Size(86, 28);
         statusLabel.TextAlign = ContentAlignment.MiddleCenter;
 
-        ConfigureButton(createButton, "생성", 92);
+        ConfigureButton(deleteButton, "삭제", 82);
+        deleteButton.Location = new Point(298, top + 6);
+        deleteButton.Click += (_, _) =>
+        {
+            try
+            {
+                removeShortcut();
+                RefreshShortcutState();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(
+                    $"바로가기를 삭제하지 못했습니다.{Environment.NewLine}{exception.Message}",
+                    options.ProgramName,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        };
+
+        ConfigureButton(createButton, "생성", 82);
         createButton.Location = new Point(390, top + 6);
         createButton.Click += (_, _) =>
         {
@@ -209,6 +236,7 @@ internal sealed class ApplicationSettingsForm : Form
 
         parent.Controls.Add(label);
         parent.Controls.Add(statusLabel);
+        parent.Controls.Add(deleteButton);
         parent.Controls.Add(createButton);
     }
 
@@ -254,20 +282,30 @@ internal sealed class ApplicationSettingsForm : Form
     {
         UpdateShortcutState(
             shortcutService.DesktopShortcutExists,
+            shortcutService.CanRemoveDesktopShortcut,
             desktopStatusLabel,
-            desktopCreateButton);
+            desktopCreateButton,
+            desktopDeleteButton);
         UpdateShortcutState(
             shortcutService.StartMenuShortcutExists,
+            shortcutService.CanRemoveStartMenuShortcut,
             startMenuStatusLabel,
-            startMenuCreateButton);
+            startMenuCreateButton,
+            startMenuDeleteButton);
     }
 
-    private static void UpdateShortcutState(bool exists, Label statusLabel, Button createButton)
+    private static void UpdateShortcutState(
+        bool exists,
+        bool canRemove,
+        Label statusLabel,
+        Button createButton,
+        Button deleteButton)
     {
-        statusLabel.Text = exists ? "생성됨" : "미생성";
+        statusLabel.Text = canRemove ? "생성됨" : exists ? "설치됨" : "미생성";
         statusLabel.ForeColor = exists ? SuccessColor : Color.DimGray;
         createButton.Text = exists ? "생성됨" : "생성";
         createButton.Enabled = !exists;
+        deleteButton.Enabled = canRemove;
     }
 
     private static TabPage CreateTabPage(string text)
