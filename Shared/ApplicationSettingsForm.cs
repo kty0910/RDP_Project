@@ -139,7 +139,7 @@ internal sealed class ApplicationSettingsForm : Form
             Location = new Point(24, 186),
             Size = new Size(466, 48),
             ForeColor = WarningColor,
-            Text = "※ 설정에서 만든 바로가기는 삭제할 수 있으며 중복 생성되지 않습니다.",
+            Text = "※ 바로가기는 중복 생성되지 않으며 삭제에는 1~3초 시간이 필요합니다.",
             TextAlign = ContentAlignment.MiddleLeft
         };
         page.Controls.Add(warningLabel);
