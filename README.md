@@ -36,8 +36,8 @@ Windows 원격 데스크톱(RDP) 접속 전에 대상 PC의 연결 상태와 현
 
 최신 설치 파일은 [GitHub Releases](https://github.com/kty0910/RDP_Project/releases/latest)에서 받을 수 있습니다.
 
-- `RemoteMonitor_Setup_v1.1.1.exe`: 무토큰 기본판
-- `RemoteMonitor_Setup_v1.1.1_Token.exe`: 토큰판
+- `RemoteMonitor_Setup_v1.1.2.exe`: 무토큰 기본판
+- `RemoteMonitor_Setup_v1.1.2_Token.exe`: 토큰판
 - `SHA256SUMS.txt`: 설치 파일 무결성 확인용 SHA-256 체크섬
 
 설치 프로그램에서 사용할 구성요소를 선택합니다.

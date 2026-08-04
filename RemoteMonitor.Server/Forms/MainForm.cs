@@ -463,7 +463,7 @@ private bool isMonitoring;
             new ApplicationSettingsOptions
             {
                 ProgramName = "RDP Server",
-                Version = $"v{typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.1.1"}",
+                Version = $"v{typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.1.2"}",
                 InstallPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
                 StartupDescription = "Windows 부팅 시 자동 실행",
                 IsStartupEnabled = startupRegistrationService.IsRegistered,

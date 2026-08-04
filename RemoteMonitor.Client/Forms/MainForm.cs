@@ -2912,7 +2912,7 @@ private bool isTrayStatusChecking;
             new ApplicationSettingsOptions
             {
                 ProgramName = "RDP Client",
-                Version = $"v{typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.1.1"}",
+                Version = $"v{typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.1.2"}",
                 InstallPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
                 StartupDescription = "Windows 로그인 시 자동 실행",
                 IsStartupEnabled = StartupRegistrationService.IsEnabled,

@@ -12,9 +12,9 @@
 #define MyOutputSuffix ""
 #endif
 
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.1.2"
 
-#define MyReleaseDate "2026-07-29"
+#define MyReleaseDate "2026-08-04"
 
 
 
