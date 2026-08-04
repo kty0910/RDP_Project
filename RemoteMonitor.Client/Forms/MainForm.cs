@@ -5152,7 +5152,10 @@ private bool isTrayStatusChecking;
         var dialog = new RemotePcEditForm(
             original,
             descriptionFormProvider: () => GetOpenRemotePcDescription(editorKey),
-            descriptionFormOpened: form => RegisterRemotePcDescription(editorKey, form));
+            descriptionFormOpened: form => RegisterRemotePcDescription(editorKey, form),
+            saveValidator: remotePc => HasDuplicateRemotePcHost(remotePc, original)
+                ? "이미 같은 IP의 원격 PC가 등록되어 있습니다."
+                : null);
         remotePcEditForms[editorKey] = dialog;
         dialog.FormClosed += (_, _) =>
         {
@@ -5232,16 +5235,6 @@ private bool isTrayStatusChecking;
 
 
 
-
-        if (HasDuplicateRemotePcHost(dialog.RemotePc, original))
-        {
-            MessageBox.Show(
-                "이미 같은 IP의 원격 PC가 등록되어 있습니다.",
-                "원격 PC 정보 수정",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return;
-        }
 
         remotePcs[currentIndex] = dialog.RemotePc;
 

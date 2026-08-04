@@ -8,6 +8,7 @@ public sealed class RemotePcEditForm : Form
     private readonly bool allowDelete;
     private readonly Func<RemotePcDescriptionForm?>? descriptionFormProvider;
     private readonly Action<RemotePcDescriptionForm>? descriptionFormOpened;
+    private readonly Func<RemotePcInfo, string?>? saveValidator;
     private readonly PersistentPlaceholderTextBox nameTextBox = new();
     private readonly PersistentPlaceholderTextBox hostTextBox = new();
     private readonly NumericUpDown statusPortInput = new();
@@ -49,12 +50,14 @@ public sealed class RemotePcEditForm : Form
         RemotePcInfo remotePc,
         bool allowDelete = true,
         Func<RemotePcDescriptionForm?>? descriptionFormProvider = null,
-        Action<RemotePcDescriptionForm>? descriptionFormOpened = null)
+        Action<RemotePcDescriptionForm>? descriptionFormOpened = null,
+        Func<RemotePcInfo, string?>? saveValidator = null)
     {
         original = remotePc;
         this.allowDelete = allowDelete;
         this.descriptionFormProvider = descriptionFormProvider;
         this.descriptionFormOpened = descriptionFormOpened;
+        this.saveValidator = saveValidator;
         RemotePc = remotePc;
 
         Text = allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가";
@@ -539,7 +542,7 @@ public sealed class RemotePcEditForm : Form
             return;
         }
 
-        RemotePc = new RemotePcInfo
+        var updatedRemotePc = new RemotePcInfo
         {
             Name = nameTextBox.Text.Trim(),
             Host = parsedHost,
@@ -559,6 +562,23 @@ public sealed class RemotePcEditForm : Form
             BridgeToken = string.Empty
 #endif
         };
+
+        var validationMessage = saveValidator?.Invoke(updatedRemotePc);
+        if (!string.IsNullOrWhiteSpace(validationMessage))
+        {
+            MessageBox.Show(
+                validationMessage,
+                allowDelete ? "원격 PC 정보 수정" : "원격 PC 정보 추가",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            hostTextBox.Text = FormatHostForInput(original.Host, original.RdpPort);
+            hostTextBox.Focus();
+            hostTextBox.SelectAll();
+            DialogResult = DialogResult.None;
+            return;
+        }
+
+        RemotePc = updatedRemotePc;
         DialogResult = DialogResult.OK;
         Close();
     }
