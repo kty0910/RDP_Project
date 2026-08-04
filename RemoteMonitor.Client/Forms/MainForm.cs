@@ -4523,10 +4523,10 @@ private bool isTrayStatusChecking;
                 return;
             }
 
-            if (remotePcs.Any(existing => IsSameRemotePc(existing, dialog.RemotePc)))
+            if (HasDuplicateRemotePcHost(dialog.RemotePc))
             {
                 MessageBox.Show(
-                    "이미 같은 원격 PC 정보가 등록되어 있습니다.",
+                    "이미 같은 IP의 원격 PC가 등록되어 있습니다.",
                     "원격 PC 정보 추가",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -4897,7 +4897,7 @@ private bool isTrayStatusChecking;
 
     private void EditRemotePcDescription(RemotePcRow row)
     {
-        var original = remotePcs.FirstOrDefault(remotePc => IsSameRemotePc(remotePc, row.RemotePc));
+        var original = FindRemotePc(row.RemotePc);
         if (original is null)
         {
             MessageBox.Show(
@@ -5095,7 +5095,7 @@ private bool isTrayStatusChecking;
 
 
 
-        var original = remotePcs.FirstOrDefault(pc => IsSameRemotePc(pc, row.RemotePc));
+        var original = FindRemotePc(row.RemotePc);
 
 
 
@@ -5167,10 +5167,14 @@ private bool isTrayStatusChecking;
                 return;
             }
 
-            var currentIndex = remotePcs.FindIndex(
-                remotePc => GetRemotePcKey(remotePc).Equals(
-                    editorKey,
-                    StringComparison.OrdinalIgnoreCase));
+            var currentIndex = remotePcs.IndexOf(original);
+            if (currentIndex < 0)
+            {
+                currentIndex = remotePcs.FindIndex(
+                    remotePc => GetRemotePcKey(remotePc).Equals(
+                        editorKey,
+                        StringComparison.OrdinalIgnoreCase));
+            }
             if (currentIndex < 0)
             {
                 ShowRemotePcChangedWarning();
@@ -5228,6 +5232,16 @@ private bool isTrayStatusChecking;
 
 
 
+
+        if (HasDuplicateRemotePcHost(dialog.RemotePc, original))
+        {
+            MessageBox.Show(
+                "이미 같은 IP의 원격 PC가 등록되어 있습니다.",
+                "원격 PC 정보 수정",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
 
         remotePcs[currentIndex] = dialog.RemotePc;
 
@@ -6349,6 +6363,33 @@ private bool isTrayStatusChecking;
 
 
 
+    }
+
+    private RemotePcInfo? FindRemotePc(RemotePcInfo remotePc)
+    {
+        return remotePcs.FirstOrDefault(existing => ReferenceEquals(existing, remotePc))
+            ?? remotePcs.FirstOrDefault(existing => IsSameRemotePc(existing, remotePc));
+    }
+
+    private bool HasDuplicateRemotePcHost(RemotePcInfo candidate, RemotePcInfo? excluded = null)
+    {
+        return remotePcs.Any(existing =>
+            !ReferenceEquals(existing, excluded)
+            && IsSameRemotePcHost(existing.Host, candidate.Host));
+    }
+
+    private static bool IsSameRemotePcHost(string first, string second)
+    {
+        var normalizedFirst = first.Trim();
+        var normalizedSecond = second.Trim();
+
+        if (IPAddress.TryParse(normalizedFirst, out var firstAddress)
+            && IPAddress.TryParse(normalizedSecond, out var secondAddress))
+        {
+            return firstAddress.Equals(secondAddress);
+        }
+
+        return normalizedFirst.Equals(normalizedSecond, StringComparison.OrdinalIgnoreCase);
     }
 
 
