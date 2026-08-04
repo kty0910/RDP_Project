@@ -1,9 +1,5 @@
 <Project>
   <PropertyGroup>
-    <Version>1.1.2</Version>
-    <AssemblyVersion>1.1.2.0</AssemblyVersion>
-    <FileVersion>1.1.2.0</FileVersion>
-    <InformationalVersion>v1.1.2</InformationalVersion>
     <Company>RemoteMonitor</Company>
     <Product>Remote Monitor</Product>
   </PropertyGroup>

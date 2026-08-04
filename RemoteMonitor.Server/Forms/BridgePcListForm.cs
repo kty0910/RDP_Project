@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Net;
 using RemoteMonitor.Server.Bridge;
 using RemoteMonitor.Server.Logging;
 
@@ -329,7 +330,7 @@ public sealed class BridgePcListForm : Form
                 return;
             }
 
-            var currentIndex = FindTargetIndex(editorKey);
+            var currentIndex = FindTargetIndex(original, editorKey);
             if (currentIndex < 0)
             {
                 ShowTargetChangedWarning();
@@ -366,7 +367,10 @@ public sealed class BridgePcListForm : Form
             original,
             allowDelete: true,
             descriptionFormProvider: () => GetOpenTargetDescription(editorKey),
-            descriptionFormOpened: form => RegisterTargetDescription(editorKey, form));
+            descriptionFormOpened: form => RegisterTargetDescription(editorKey, form),
+            saveValidator: target => ContainsDuplicateHost(target, original)
+                ? "이미 같은 IP의 원격 PC가 등록되어 있습니다."
+                : null);
         targetEditForms[editorKey] = dialog;
         dialog.FormClosed += (_, _) =>
         {
@@ -381,7 +385,7 @@ public sealed class BridgePcListForm : Form
                 return;
             }
 
-            var currentIndex = FindTargetIndex(editorKey);
+            var currentIndex = FindTargetIndex(original, editorKey);
             if (currentIndex < 0)
             {
                 ShowTargetChangedWarning();
@@ -392,12 +396,6 @@ public sealed class BridgePcListForm : Form
             {
                 targets.RemoveAt(currentIndex);
                 SaveTargets();
-                return;
-            }
-
-            if (ContainsDuplicate(dialog.Target, currentIndex))
-            {
-                ShowDuplicateWarning();
                 return;
             }
 
@@ -458,8 +456,14 @@ public sealed class BridgePcListForm : Form
         };
     }
 
-    private int FindTargetIndex(string editorKey)
+    private int FindTargetIndex(BridgeTarget original, string editorKey)
     {
+        var referenceIndex = targets.IndexOf(original);
+        if (referenceIndex >= 0)
+        {
+            return referenceIndex;
+        }
+
         for (var index = 0; index < targets.Count; index++)
         {
             if (GetTargetKey(targets[index]).Equals(
@@ -503,10 +507,28 @@ public sealed class BridgePcListForm : Form
     {
         return targets
             .Where((_, index) => index != excludedIndex)
-            .Any(target => target.Name.Equals(candidate.Name, StringComparison.OrdinalIgnoreCase)
-                || (target.Host.Equals(candidate.Host, StringComparison.OrdinalIgnoreCase)
-                    && target.ApiPort == candidate.ApiPort
-                    && target.RdpPort == candidate.RdpPort));
+            .Any(target => IsSameHost(target.Host, candidate.Host));
+    }
+
+    private bool ContainsDuplicateHost(BridgeTarget candidate, BridgeTarget excluded)
+    {
+        return targets.Any(target =>
+            !ReferenceEquals(target, excluded)
+            && IsSameHost(target.Host, candidate.Host));
+    }
+
+    private static bool IsSameHost(string first, string second)
+    {
+        var normalizedFirst = first.Trim();
+        var normalizedSecond = second.Trim();
+
+        if (IPAddress.TryParse(normalizedFirst, out var firstAddress)
+            && IPAddress.TryParse(normalizedSecond, out var secondAddress))
+        {
+            return firstAddress.Equals(secondAddress);
+        }
+
+        return normalizedFirst.Equals(normalizedSecond, StringComparison.OrdinalIgnoreCase);
     }
 
     private void SaveTargets()
@@ -519,7 +541,7 @@ public sealed class BridgePcListForm : Form
     private static void ShowDuplicateWarning()
     {
         MessageBox.Show(
-            "동일한 PC 이름 또는 연결 정보가 이미 등록되어 있습니다.",
+            "이미 같은 IP의 원격 PC가 등록되어 있습니다.",
             "원격 PC 목록",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
