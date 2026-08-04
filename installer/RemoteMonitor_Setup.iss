@@ -12,7 +12,10 @@
 #define MyOutputSuffix ""
 #endif
 
-#define MyAppVersion "1.1.2"
+; 설치 파일/GitHub Release 묶음 버전은 구성요소 버전과 독립적으로 증가시킨다.
+#define MyPackageVersion "1.1.2"
+#define MyClientVersion "1.1.2"
+#define MyServerVersion "1.1.2"
 
 #define MyReleaseDate "2026-08-04"
 
@@ -34,7 +37,7 @@ AppName={#MyAppName}
 
 
 
-AppVersion={#MyAppVersion}
+AppVersion={#MyPackageVersion}
 
 
 
@@ -62,7 +65,7 @@ OutputDir={#MyOutputDir}
 
 
 
-OutputBaseFilename=RemoteMonitor_Setup_v{#MyAppVersion}{#MyOutputSuffix}
+OutputBaseFilename=RemoteMonitor_Setup_v{#MyPackageVersion}{#MyOutputSuffix}
 
 
 
@@ -90,7 +93,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 
 
-UninstallDisplayName={#MyAppName} v{#MyAppVersion}
+UninstallDisplayName={#MyAppName} v{#MyPackageVersion}
 
 
 
@@ -1874,7 +1877,8 @@ begin
 
 
 
-    'Client : {#MyAppVersion}    Server : {#MyAppVersion}';
+    '설치 패키지 : {#MyPackageVersion}' + #13#10 +
+    'Client : {#MyClientVersion}    Server : {#MyServerVersion}';
 
 
 

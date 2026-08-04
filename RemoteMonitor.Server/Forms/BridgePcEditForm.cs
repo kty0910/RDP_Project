@@ -4,9 +4,11 @@ namespace RemoteMonitor.Server.Forms;
 
 public sealed class BridgePcEditForm : Form
 {
+    private readonly BridgeTarget original;
     private readonly bool allowDelete;
     private readonly Func<BridgePcDescriptionForm?>? descriptionFormProvider;
     private readonly Action<BridgePcDescriptionForm>? descriptionFormOpened;
+    private readonly Func<BridgeTarget, string?>? saveValidator;
     private readonly TextBox nameTextBox = new();
     private readonly TextBox hostTextBox = new();
     private readonly NumericUpDown statusPortInput = new();
@@ -28,11 +30,14 @@ public sealed class BridgePcEditForm : Form
         BridgeTarget target,
         bool allowDelete,
         Func<BridgePcDescriptionForm?>? descriptionFormProvider = null,
-        Action<BridgePcDescriptionForm>? descriptionFormOpened = null)
+        Action<BridgePcDescriptionForm>? descriptionFormOpened = null,
+        Func<BridgeTarget, string?>? saveValidator = null)
     {
+        original = target;
         this.allowDelete = allowDelete;
         this.descriptionFormProvider = descriptionFormProvider;
         this.descriptionFormOpened = descriptionFormOpened;
+        this.saveValidator = saveValidator;
         Target = target;
 
         Text = allowDelete ? "원격 PC 수정" : "원격 PC 추가";
@@ -252,7 +257,7 @@ public sealed class BridgePcEditForm : Form
             return;
         }
 
-        Target = new BridgeTarget
+        var updatedTarget = new BridgeTarget
         {
             Name = name,
             Host = host,
@@ -262,6 +267,24 @@ public sealed class BridgePcEditForm : Form
             ApiPort = (int)statusPortInput.Value,
             RdpPort = (int)rdpPortInput.Value
         };
+
+        var validationMessage = saveValidator?.Invoke(updatedTarget);
+        if (!string.IsNullOrWhiteSpace(validationMessage))
+        {
+            MessageBox.Show(
+                validationMessage,
+                Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            hostTextBox.Text = original.Host;
+            rdpPortInput.Value = Math.Clamp(original.RdpPort <= 0 ? 3389 : original.RdpPort, 1, 65535);
+            hostTextBox.Focus();
+            hostTextBox.SelectAll();
+            DialogResult = DialogResult.None;
+            return;
+        }
+
+        Target = updatedTarget;
         DialogResult = DialogResult.OK;
         Close();
     }
